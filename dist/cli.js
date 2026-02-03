@@ -25,11 +25,18 @@ import { registerCommentsCommand } from './commands/comments.js';
 import { registerUsersCommand } from './commands/users.js';
 import { registerExportCommand } from './commands/export.js';
 import { registerBatchCommand } from './commands/batch.js';
+import { registerInspectCommand } from './commands/inspect.js';
+import { registerFindCommand } from './commands/find.js';
+import { registerBulkCommand } from './commands/bulk.js';
+import { registerImportCommand } from './commands/import.js';
+import { registerTemplateCommand } from './commands/template.js';
+import { registerStatsCommand } from './commands/stats.js';
+import { registerDuplicateCommand } from './commands/duplicate.js';
 const program = new Command();
 program
     .name('notion')
     .description('Full-featured CLI for Notion API - built for humans AND AI agents')
-    .version('0.2.0')
+    .version('0.3.0')
     .option('--token <token>', 'Notion API token (or set NOTION_TOKEN env var)')
     .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
@@ -50,6 +57,13 @@ registerCommentsCommand(program);
 registerUsersCommand(program);
 registerExportCommand(program);
 registerBatchCommand(program);
+registerInspectCommand(program);
+registerFindCommand(program);
+registerBulkCommand(program);
+registerImportCommand(program);
+registerTemplateCommand(program);
+registerStatsCommand(program);
+registerDuplicateCommand(program);
 // Raw API command for advanced users
 program
     .command('api <method> <path>')
