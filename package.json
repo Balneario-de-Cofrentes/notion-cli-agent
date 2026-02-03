@@ -1,6 +1,6 @@
 {
   "name": "notion-cli-agent",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "The most powerful CLI for Notion — built for humans AND AI agents. Features smart queries, Obsidian sync, batch operations, validation, backups, and more.",
   "type": "module",
   "bin": {
