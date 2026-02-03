@@ -33,13 +33,17 @@ import { registerImportCommand } from './commands/import.js';
 import { registerTemplateCommand } from './commands/template.js';
 import { registerStatsCommand } from './commands/stats.js';
 import { registerDuplicateCommand } from './commands/duplicate.js';
+import { registerAICommand } from './commands/ai.js';
+import { registerValidateCommand } from './commands/validate.js';
+import { registerBackupCommand } from './commands/backup.js';
+import { registerRelationsCommand } from './commands/relations.js';
 
 const program = new Command();
 
 program
   .name('notion')
   .description('Full-featured CLI for Notion API - built for humans AND AI agents')
-  .version('0.3.0')
+  .version('0.4.0')
   .option('--token <token>', 'Notion API token (or set NOTION_TOKEN env var)')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
@@ -67,6 +71,10 @@ registerImportCommand(program);
 registerTemplateCommand(program);
 registerStatsCommand(program);
 registerDuplicateCommand(program);
+registerAICommand(program);
+registerValidateCommand(program);
+registerBackupCommand(program);
+registerRelationsCommand(program);
 
 // Raw API command for advanced users
 program
