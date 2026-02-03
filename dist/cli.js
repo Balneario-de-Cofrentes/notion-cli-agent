@@ -36,6 +36,7 @@ import { registerAICommand } from './commands/ai.js';
 import { registerValidateCommand } from './commands/validate.js';
 import { registerBackupCommand } from './commands/backup.js';
 import { registerRelationsCommand } from './commands/relations.js';
+import { registerHelpAgentCommand } from './commands/help-agent.js';
 const program = new Command();
 program
     .name('notion')
@@ -72,6 +73,7 @@ registerAICommand(program);
 registerValidateCommand(program);
 registerBackupCommand(program);
 registerRelationsCommand(program);
+registerHelpAgentCommand(program);
 // Raw API command for advanced users
 program
     .command('api <method> <path>')
