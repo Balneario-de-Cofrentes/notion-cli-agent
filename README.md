@@ -5,7 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/notion-cli-agent.svg)](https://www.npmjs.com/package/notion-cli-agent)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-While other Notion CLIs offer basic CRUD operations, **notion-cli** goes further with AI-native features, Obsidian integration, smart queries, bulk operations, validation, and more — everything an AI agent (or power user) needs to fully manage Notion from the terminal.
+Instead of basic CRUD operations, **notion-cli-agent** goes further with AI-native features, Obsidian integration, smart queries, bulk operations, validation, and more — everything an AI agent (or power user) needs to fully manage Notion from the terminal.
 
 ## ✨ Features
 
