@@ -2,7 +2,7 @@
 
 > The most powerful command-line interface for Notion — built for humans AND AI agents.
 
-[![npm version](https://img.shields.io/npm/v/@anthropic/notion-cli.svg)](https://www.npmjs.com/package/@anthropic/notion-cli)
+[![npm version](https://img.shields.io/npm/v/notion-cli-agent.svg)](https://www.npmjs.com/package/notion-cli-agent)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 While other Notion CLIs offer basic CRUD operations, **notion-cli** goes further with AI-native features, Obsidian integration, smart queries, bulk operations, validation, and more — everything an AI agent (or power user) needs to fully manage Notion from the terminal.
@@ -46,6 +46,14 @@ While other Notion CLIs offer basic CRUD operations, **notion-cli** goes further
 
 ## 📦 Installation
 
+### From npm (recommended)
+
+```bash
+npm install -g notion-cli-agent
+```
+
+### From source
+
 ```bash
 # Clone the repository
 git clone https://github.com/Balneario-de-Cofrentes/notion-cli-agent.git
@@ -57,7 +65,7 @@ pnpm install
 # Build
 pnpm build
 
-# Link globally (optional)
+# Link globally
 pnpm link --global
 ```
 
