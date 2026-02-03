@@ -1,21 +1,49 @@
 {
   "name": "notion-cli-agent",
   "version": "0.4.0",
-  "description": "Full-featured CLI for Notion API",
+  "description": "The most powerful CLI for Notion — built for humans AND AI agents. Features smart queries, Obsidian sync, batch operations, validation, backups, and more.",
   "type": "module",
   "bin": {
-    "notion": "./dist/cli.js"
+    "notion": "./dist/cli.js",
+    "notion-cli-agent": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "lint": "eslint src/",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "pnpm run build"
   },
-  "keywords": ["notion", "cli", "api", "productivity"],
-  "author": "Juan Cartagena",
+  "keywords": [
+    "notion",
+    "cli",
+    "notion-api",
+    "ai-agents",
+    "obsidian",
+    "productivity",
+    "automation",
+    "backup",
+    "sync",
+    "llm",
+    "ai",
+    "agent"
+  ],
+  "author": "Balneario de Cofrentes",
   "license": "MIT",
+  "homepage": "https://github.com/Balneario-de-Cofrentes/notion-cli-agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Balneario-de-Cofrentes/notion-cli-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Balneario-de-Cofrentes/notion-cli-agent/issues"
+  },
   "dependencies": {
     "commander": "^12.1.0",
     "chalk": "^5.3.0"
@@ -28,9 +56,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cf3/notion-cli"
   }
 }
