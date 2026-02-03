@@ -1,4 +1,4 @@
-# notion-cli
+# notion-cli-agent
 
 > The most powerful command-line interface for Notion — built for humans AND AI agents.
 
@@ -48,8 +48,8 @@ While other Notion CLIs offer basic CRUD operations, **notion-cli** goes further
 
 ```bash
 # Clone the repository
-git clone https://github.com/user/notion-cli.git
-cd notion-cli
+git clone https://github.com/Balneario-de-Cofrentes/notion-cli-agent.git
+cd notion-cli-agent
 
 # Install dependencies
 pnpm install
