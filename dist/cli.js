@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Notion CLI - Full-featured command line interface for Notion API
+ * Built for humans AND AI agents
  *
  * Usage:
  *   notion search "my query"
@@ -10,6 +11,9 @@
  *   notion block append <page_id> --text "Hello world"
  *   notion comment create --page <page_id> --text "Great work!"
  *   notion user me
+ *   notion export page <page_id> --obsidian
+ *   notion export db <db_id> --vault ~/obsidian-vault
+ *   notion batch --file operations.json
  */
 import { Command } from 'commander';
 import { initClient } from './client.js';
@@ -19,11 +23,13 @@ import { registerDatabasesCommand } from './commands/databases.js';
 import { registerBlocksCommand } from './commands/blocks.js';
 import { registerCommentsCommand } from './commands/comments.js';
 import { registerUsersCommand } from './commands/users.js';
+import { registerExportCommand } from './commands/export.js';
+import { registerBatchCommand } from './commands/batch.js';
 const program = new Command();
 program
     .name('notion')
-    .description('Full-featured CLI for Notion API')
-    .version('0.1.0')
+    .description('Full-featured CLI for Notion API - built for humans AND AI agents')
+    .version('0.2.0')
     .option('--token <token>', 'Notion API token (or set NOTION_TOKEN env var)')
     .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
@@ -42,6 +48,8 @@ registerDatabasesCommand(program);
 registerBlocksCommand(program);
 registerCommentsCommand(program);
 registerUsersCommand(program);
+registerExportCommand(program);
+registerBatchCommand(program);
 // Raw API command for advanced users
 program
     .command('api <method> <path>')

@@ -1,6 +1,6 @@
 # notion-cli
 
-A full-featured command line interface for the Notion API.
+A full-featured command line interface for the Notion API — **built for humans AND AI agents**.
 
 ## Features
 
@@ -11,6 +11,13 @@ A full-featured command line interface for the Notion API.
 - **Comments** - Read and create comments on pages
 - **Users** - List workspace users and get current integration info
 - **Raw API** - Direct API access for advanced use cases
+
+### 🤖 AI Agent Features
+
+- **Export to Obsidian** - Export pages and databases with YAML frontmatter
+- **Batch operations** - Execute multiple ops in one command (fewer tool calls)
+- **Dry-run mode** - Preview what would happen without executing
+- **LLM-friendly output** - Structured output optimized for AI consumption
 
 ## Installation
 
@@ -208,6 +215,73 @@ notion user list
 # Get specific user
 notion user get <user_id>
 ```
+
+### Export (Obsidian Integration)
+
+```bash
+# Export a page to Markdown
+notion export page <page_id>
+
+# Export with Obsidian frontmatter (YAML metadata)
+notion export page <page_id> --obsidian
+
+# Save to file
+notion export page <page_id> --obsidian -o my-page.md
+
+# Export entire database to Obsidian vault
+notion export db <database_id> --vault ~/my-vault
+
+# Export to subfolder
+notion export db <db_id> --vault ~/my-vault --folder notion-tasks
+
+# Include page content (slower but complete)
+notion export db <db_id> --vault ~/my-vault --content
+
+# Export with filter
+notion export db <db_id> --vault ~/my-vault --filter '{"property":"Status","status":{"equals":"Done"}}'
+```
+
+The exported files include:
+- YAML frontmatter with all Notion properties
+- `notion_id` and `notion_url` for reference
+- Dates, tags, status, relations, etc.
+- Compatible with Obsidian Dataview plugin
+
+### Batch Operations (for AI Agents)
+
+Execute multiple operations in a single command — perfect for reducing tool calls in AI agents:
+
+```bash
+# Dry run - see what would happen
+notion batch --dry-run --data '[
+  {"op":"get","type":"page","id":"abc123"},
+  {"op":"query","type":"database","id":"def456"}
+]'
+
+# Execute with LLM-friendly output
+notion batch --llm --data '[
+  {"op":"get","type":"page","id":"abc123"},
+  {"op":"create","type":"page","parent":"def456","data":{"properties":{"Name":{"title":[{"text":{"content":"New Task"}}]}}}},
+  {"op":"update","type":"page","id":"ghi789","data":{"properties":{"Status":{"status":{"name":"Done"}}}}}
+]'
+
+# Read operations from file
+notion batch -f operations.json
+
+# Stop on first error
+notion batch --stop-on-error -f operations.json
+```
+
+**Supported operations:**
+
+| Op | Type | Description |
+|----|------|-------------|
+| `get` | page, database, block | Retrieve by ID |
+| `create` | page, database | Create new |
+| `update` | page, database, block | Update properties |
+| `delete` | page, block | Archive/delete |
+| `query` | database | Query with filters |
+| `append` | block | Append children |
 
 ### Raw API Access
 
