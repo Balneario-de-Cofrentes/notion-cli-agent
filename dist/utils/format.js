@@ -39,8 +39,7 @@ export function formatBlock(block) {
             content = typeData?.rich_text?.map(t => t.plain_text).join('') || '';
             break;
         case 'to_do':
-            const checkbox = typeData?.checked ? '☑' : '☐';
-            content = `${checkbox} ${typeData?.rich_text?.map(t => t.plain_text).join('') || ''}`;
+            content = typeData?.rich_text?.map(t => t.plain_text).join('') || '';
             break;
         case 'code':
             const lang = typeData?.language || 'plain text';
@@ -150,31 +149,51 @@ export function parseProperties(props) {
     }
     return result;
 }
-export function parseFilter(property, filterType, value) {
-    // Common filter types
+export function parseFilter(property, filterType, value, propType) {
     const filter = { property };
-    // Determine property type based on filter type
-    const textFilters = ['equals', 'does_not_equal', 'contains', 'does_not_contain', 'starts_with', 'ends_with', 'is_empty', 'is_not_empty'];
-    const numberFilters = ['equals', 'does_not_equal', 'greater_than', 'less_than', 'greater_than_or_equal_to', 'less_than_or_equal_to'];
-    const checkboxFilters = ['equals', 'does_not_equal'];
-    const selectFilters = ['equals', 'does_not_equal', 'is_empty', 'is_not_empty'];
-    const dateFilters = ['equals', 'before', 'after', 'on_or_before', 'on_or_after', 'is_empty', 'is_not_empty', 'past_week', 'past_month', 'past_year', 'next_week', 'next_month', 'next_year'];
-    // Try to infer the property type from the value
+    // If property type is explicitly specified, use it
+    if (propType) {
+        switch (propType) {
+            case 'status':
+                filter.status = { [filterType]: value };
+                break;
+            case 'select':
+                filter.select = { [filterType]: value };
+                break;
+            case 'multi_select':
+                filter.multi_select = { [filterType]: value };
+                break;
+            case 'text':
+            case 'rich_text':
+                filter.rich_text = { [filterType]: value };
+                break;
+            case 'number':
+                filter.number = { [filterType]: parseFloat(value) };
+                break;
+            case 'checkbox':
+                filter.checkbox = { [filterType]: value === 'true' };
+                break;
+            case 'date':
+                filter.date = { [filterType]: value };
+                break;
+            default:
+                filter[propType] = { [filterType]: value };
+        }
+        return filter;
+    }
+    // Auto-detect property type from value format
     if (value === 'true' || value === 'false') {
         filter.checkbox = { [filterType]: value === 'true' };
     }
-    else if (/^\d+(\.\d+)?$/.test(value) && numberFilters.includes(filterType)) {
+    else if (/^\d+(\.\d+)?$/.test(value)) {
         filter.number = { [filterType]: parseFloat(value) };
     }
     else if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
         filter.date = { [filterType]: value };
     }
-    else if (selectFilters.includes(filterType)) {
-        filter.select = { [filterType]: value };
-    }
     else {
-        // Default to rich_text
-        filter.rich_text = { [filterType]: value };
+        // Default to select for simple string values (most common case)
+        filter.select = { [filterType]: value };
     }
     return filter;
 }

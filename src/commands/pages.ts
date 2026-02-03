@@ -54,6 +54,7 @@ export function registerPagesCommand(program: Command): void {
     .requiredOption('--parent <id>', 'Parent page ID or database ID')
     .option('--parent-type <type>', 'Parent type: page, database', 'database')
     .option('-t, --title <title>', 'Page title')
+    .option('--title-prop <name>', 'Name of title property (auto-detected if not set)')
     .option('-p, --prop <key=value...>', 'Set property (can be used multiple times)')
     .option('-c, --content <text>', 'Initial page content (paragraph)')
     .option('-j, --json', 'Output raw JSON')
@@ -67,13 +68,31 @@ export function registerPagesCommand(program: Command): void {
 
         const properties: Record<string, unknown> = {};
         
-        // Handle title
+        // Handle title - auto-detect title property name from database schema
         if (options.title) {
-          properties['Name'] = {
-            title: [{ text: { content: options.title } }],
-          };
-          // Also try 'title' as property name for some DBs
-          properties['title'] = {
+          let titlePropName = options.titleProp;
+          
+          // If not specified and parent is database, fetch schema to find title property
+          if (!titlePropName && options.parentType === 'database') {
+            try {
+              const db = await client.get(`databases/${options.parent}`) as {
+                properties: Record<string, { type: string }>;
+              };
+              // Find the property with type "title"
+              for (const [name, prop] of Object.entries(db.properties)) {
+                if (prop.type === 'title') {
+                  titlePropName = name;
+                  break;
+                }
+              }
+            } catch {
+              // Fall back to common defaults
+            }
+          }
+          
+          // Use detected name or fall back to common names
+          titlePropName = titlePropName || 'Name';
+          properties[titlePropName] = {
             title: [{ text: { content: options.title } }],
           };
         }

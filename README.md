@@ -1,42 +1,57 @@
 # notion-cli
 
-Full-featured command line interface for the Notion API.
+A full-featured command line interface for the Notion API.
+
+## Features
+
+- **Search** - Find pages and databases across your workspace
+- **Pages** - Create, read, update, and archive pages
+- **Databases** - Query, create, and manage databases with filters and sorting
+- **Blocks** - Add and manage page content (paragraphs, headings, lists, todos, code, etc.)
+- **Comments** - Read and create comments on pages
+- **Users** - List workspace users and get current integration info
+- **Raw API** - Direct API access for advanced use cases
 
 ## Installation
 
 ```bash
-# Clone and install
-git clone https://github.com/cf3/notion-cli
+# Clone and build
+git clone https://github.com/cf3/notion-cli.git
 cd notion-cli
 pnpm install
 pnpm build
 
-# Link globally
+# Link globally (optional)
 pnpm link --global
-```
-
-Or install directly:
-
-```bash
-npm install -g @cf3/notion-cli
 ```
 
 ## Setup
 
-Set your Notion API token:
+### Get your API token
+
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations)
+2. Create a new integration
+3. Copy the API key (starts with `ntn_` or `secret_`)
+
+### Configure the token
 
 ```bash
-# Option 1: Environment variable
+# Option 1: Environment variable (recommended)
 export NOTION_TOKEN="ntn_your_token_here"
 
 # Option 2: Config file
 mkdir -p ~/.config/notion
 echo "ntn_your_token_here" > ~/.config/notion/api_key
+
+# Option 3: Pass directly to commands
+notion --token "ntn_xxx" search "query"
 ```
 
-Get your token from [notion.so/my-integrations](https://www.notion.so/my-integrations).
+### Share your content
 
-**Important:** Share your pages/databases with the integration for access.
+**Important:** You must share pages/databases with your integration for it to access them:
+1. Open a page or database in Notion
+2. Click "..." menu → "Connect to" → Select your integration
 
 ## Usage
 
@@ -47,12 +62,15 @@ Get your token from [notion.so/my-integrations](https://www.notion.so/my-integra
 notion search "project"
 
 # Search only pages
-notion search "meeting notes" --type page
+notion search "meeting" --type page
 
-# Search only databases
+# Search only databases  
 notion search "tasks" --type database
 
-# Output JSON
+# Sort by last edited
+notion search "notes" --sort desc
+
+# JSON output for scripting
 notion search "query" --json
 ```
 
@@ -61,21 +79,26 @@ notion search "query" --json
 ```bash
 # Get a page
 notion page get <page_id>
-notion page get <page_id> --content  # Include blocks
-notion page get <page_id> --json
 
-# Create a page in a database
+# Get page with content (blocks)
+notion page get <page_id> --content
+
+# Create page in a database
 notion page create --parent <database_id> --title "New Task"
-notion page create --parent <database_id> --title "Bug" \
-  --prop "Status=In Progress" \
-  --prop "Priority=High"
 
-# Create a page under another page
+# Create with properties
+notion page create --parent <db_id> --title "Bug Fix" \
+  --prop "Priority=High" \
+  --prop "Tags=bug,urgent"
+
+# Create page under another page
 notion page create --parent <page_id> --parent-type page --title "Subpage"
 
-# Update a page
+# Specify title property name (if not "Name")
+notion page create --parent <db_id> --title "Task" --title-prop "Título"
+
+# Update page properties
 notion page update <page_id> --prop "Status=Done"
-notion page update <page_id> --archive
 
 # Archive a page
 notion page archive <page_id>
@@ -91,17 +114,21 @@ notion db get <database_id>
 notion db query <database_id>
 notion db query <database_id> --limit 10
 
-# Query with filters
-notion db query <database_id> \
+# Filter by property (auto-detects type for simple values)
+notion db query <db_id> --filter-prop "Priority" --filter-type "equals" --filter-value "High"
+
+# Filter with explicit property type (for status, etc.)
+notion db query <db_id> \
   --filter-prop "Status" \
   --filter-type "equals" \
-  --filter-value "Done"
+  --filter-value "In Progress" \
+  --filter-prop-type status
 
-# Query with JSON filter
-notion db query <database_id> --filter '{"property":"Status","select":{"equals":"Done"}}'
+# Filter with JSON (for complex queries)
+notion db query <db_id> --filter '{"and":[{"property":"Status","status":{"equals":"Done"}},{"property":"Priority","select":{"equals":"High"}}]}'
 
-# Query with sorting
-notion db query <database_id> --sort "Created" --sort-dir desc
+# Sort results
+notion db query <db_id> --sort "Created" --sort-dir desc
 
 # Create database
 notion db create --parent <page_id> --title "My Tasks" \
@@ -110,9 +137,9 @@ notion db create --parent <page_id> --title "My Tasks" \
   --property "Priority:select"
 
 # Update database
-notion db update <database_id> --title "New Title"
-notion db update <database_id> --add-prop "Tags:multi_select"
-notion db update <database_id> --remove-prop "Old Property"
+notion db update <db_id> --title "New Title"
+notion db update <db_id> --add-prop "Tags:multi_select"
+notion db update <db_id> --remove-prop "OldProperty"
 ```
 
 ### Blocks (Page Content)
@@ -124,26 +151,32 @@ notion block list <page_id>
 # Get a specific block
 notion block get <block_id>
 
-# Append content to a page
+# Add content to a page
 notion block append <page_id> --text "Hello world"
-notion block append <page_id> --heading1 "Chapter 1"
-notion block append <page_id> --heading2 "Section A"
+notion block append <page_id> --heading1 "Title"
+notion block append <page_id> --heading2 "Section"
+notion block append <page_id> --heading3 "Subsection"
+
+# Add lists
 notion block append <page_id> --bullet "Item 1" --bullet "Item 2"
 notion block append <page_id> --numbered "First" --numbered "Second"
 notion block append <page_id> --todo "Buy groceries" --todo "Call mom"
+
+# Add code blocks
 notion block append <page_id> --code "console.log('hi')" --code-lang javascript
+
+# Add other content
 notion block append <page_id> --quote "To be or not to be"
-notion block append <page_id> --callout "Important note here"
+notion block append <page_id> --callout "Important note"
 notion block append <page_id> --divider
 
 # Insert after a specific block
-notion block append <page_id> --text "Inserted text" --after <block_id>
+notion block append <page_id> --text "Inserted" --after <block_id>
 
-# Update a block
+# Update block content
 notion block update <block_id> --text "New content"
-notion block update <block_id> --archive
 
-# Delete a block
+# Delete (archive) a block
 notion block delete <block_id>
 ```
 
@@ -156,7 +189,7 @@ notion comment list <page_id>
 # Get a specific comment
 notion comment get <comment_id>
 
-# Create a comment on a page (starts new discussion)
+# Create comment on a page (starts new discussion)
 notion comment create --page <page_id> --text "Great work!"
 
 # Reply to existing discussion
@@ -169,47 +202,61 @@ notion comment create --discussion <discussion_id> --text "I agree"
 # Get current user (integration bot)
 notion user me
 
-# List all users
+# List all workspace users
 notion user list
 
-# Get a specific user
+# Get specific user
 notion user get <user_id>
 ```
 
-### Raw API
+### Raw API Access
 
-For advanced use cases:
+For advanced use cases not covered by other commands:
 
 ```bash
 # GET request
-notion api GET pages/<page_id>
+notion api GET "pages/<page_id>"
 
 # POST request with body
-notion api POST search --data '{"query":"test"}'
+notion api POST "search" --data '{"query":"test"}'
 
 # With query parameters
-notion api GET users --query "page_size=5"
+notion api GET "users" --query "page_size=5"
 ```
 
 ## Property Formats
 
-When setting properties with `--prop`:
+When setting properties with `--prop`, the CLI auto-detects types:
 
-| Type | Format | Example |
-|------|--------|---------|
-| Text | `key=value` | `--prop "Notes=Hello"` |
-| Number | `key=123` | `--prop "Count=42"` |
-| Checkbox | `key=true/false` | `--prop "Done=true"` |
-| Date | `key=YYYY-MM-DD` | `--prop "Due=2024-12-31"` |
-| URL | `key=https://...` | `--prop "Link=https://example.com"` |
-| Email | `key=a@b.com` | `--prop "Contact=me@example.com"` |
-| Select | `key=value` | `--prop "Status=Done"` |
-| Multi-select | `key=a,b,c` | `--prop "Tags=bug,urgent"` |
+| Value Format | Detected Type | Example |
+|--------------|---------------|---------|
+| Plain text | select | `--prop "Status=Done"` |
+| `true`/`false` | checkbox | `--prop "Active=true"` |
+| Numbers | number | `--prop "Count=42"` |
+| `YYYY-MM-DD` | date | `--prop "Due=2024-12-31"` |
+| URL | url | `--prop "Link=https://..."` |
+| Email | email | `--prop "Contact=me@example.com"` |
+| Comma-separated | multi_select | `--prop "Tags=bug,urgent"` |
+| JSON | as-is | `--prop 'Data={"key":"value"}'` |
 
-## Output
+## Filter Property Types
 
-- Default: Human-readable formatted output
-- `--json` or `-j`: Raw JSON output (for scripting)
+When filtering databases, use `--filter-prop-type` for non-select properties:
+
+| Type | Example |
+|------|---------|
+| `status` | `--filter-prop-type status` |
+| `select` | `--filter-prop-type select` |
+| `multi_select` | `--filter-prop-type multi_select` |
+| `text` / `rich_text` | `--filter-prop-type text` |
+| `number` | `--filter-prop-type number` |
+| `checkbox` | `--filter-prop-type checkbox` |
+| `date` | `--filter-prop-type date` |
+
+## Output Formats
+
+- **Default**: Human-readable formatted output
+- **`--json` or `-j`**: Raw JSON output (for scripting)
 
 ## Examples
 
@@ -224,14 +271,15 @@ notion block append $PAGE_ID --heading2 "Overview"
 notion block append $PAGE_ID --text "This document covers..."
 notion block append $PAGE_ID --todo "Write introduction"
 notion block append $PAGE_ID --todo "Add examples"
-notion block append $PAGE_ID --todo "Review"
 ```
 
-### Query and update tasks
+### Find and update tasks
 
 ```bash
-# Find all in-progress tasks
-notion db query $DB_ID --filter-prop Status --filter-type equals --filter-value "In Progress" --json | \
+# Find in-progress tasks and mark for review
+notion db query $DB_ID \
+  --filter-prop Status --filter-type equals --filter-value "In Progress" \
+  --filter-prop-type status --json | \
   jq -r '.results[].id' | \
   while read id; do
     notion page update $id --prop "Status=Review"
@@ -244,10 +292,33 @@ notion db query $DB_ID --filter-prop Status --filter-type equals --filter-value 
 notion db query $DB_ID --limit 100 --json > tasks.json
 ```
 
+### Backup page content
+
+```bash
+notion page get $PAGE_ID --content --json > page-backup.json
+```
+
+## Aliases
+
+For convenience, commands have shorter aliases:
+
+| Command | Aliases |
+|---------|---------|
+| `page` | `pages`, `p` |
+| `database` | `databases`, `db` |
+| `block` | `blocks`, `b` |
+| `comment` | `comments` |
+| `user` | `users` |
+
+## Requirements
+
+- Node.js 20+
+- A Notion integration with appropriate permissions
+
 ## License
 
 MIT
 
 ## Contributing
 
-PRs welcome! Please open an issue first to discuss.
+PRs welcome! Please open an issue first to discuss changes.

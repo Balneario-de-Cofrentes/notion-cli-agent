@@ -41,6 +41,7 @@ export function registerDatabasesCommand(program) {
         .option('--filter-prop <property>', 'Property to filter on')
         .option('--filter-type <type>', 'Filter type: equals, contains, etc.')
         .option('--filter-value <value>', 'Filter value')
+        .option('--filter-prop-type <propType>', 'Property type: select, status, text, number, date, checkbox')
         .option('-s, --sort <property>', 'Sort by property')
         .option('--sort-dir <direction>', 'Sort direction: asc, desc', 'desc')
         .option('-l, --limit <number>', 'Max results', '100')
@@ -55,7 +56,7 @@ export function registerDatabasesCommand(program) {
                 body.filter = JSON.parse(options.filter);
             }
             else if (options.filterProp && options.filterType && options.filterValue) {
-                body.filter = parseFilter(options.filterProp, options.filterType, options.filterValue);
+                body.filter = parseFilter(options.filterProp, options.filterType, options.filterValue, options.filterPropType);
             }
             // Handle sort
             if (options.sort) {
