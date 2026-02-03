@@ -7,6 +7,23 @@
 
 Instead of basic CRUD operations, **notion-cli-agent** goes further with AI-native features, Obsidian integration, smart queries, bulk operations, validation, and more — everything an AI agent (or power user) needs to fully manage Notion from the terminal.
 
+## 🚀 Quick Start for AI Agents
+
+```bash
+# Install
+npm install -g notion-cli-agent
+
+# Set your token
+export NOTION_TOKEN="ntn_your_token_here"
+
+# Get the full quick reference guide
+notion quickstart
+```
+
+The `quickstart` command outputs a complete guide with all common operations, examples, and tips — perfect for AI agents to learn the CLI instantly.
+
+---
+
 ## ✨ Features
 
 ### Core Operations

@@ -40,8 +40,8 @@ import { registerHelpAgentCommand } from './commands/help-agent.js';
 const program = new Command();
 program
     .name('notion')
-    .description('Full-featured CLI for Notion API - built for humans AND AI agents')
-    .version('0.4.0')
+    .description('Full-featured CLI for Notion API - built for humans AND AI agents\n\n  💡 AI Agents: Run "notion quickstart" for a complete quick reference guide')
+    .version('0.4.2')
     .option('--token <token>', 'Notion API token (or set NOTION_TOKEN env var)')
     .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
