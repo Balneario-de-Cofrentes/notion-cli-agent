@@ -70,3 +70,14 @@ describe('Test Infrastructure', () => {
     });
   });
 });
+
+describe('API Safety', () => {
+  it('should reject unmocked fetch calls', async () => {
+    // This test verifies our safety net works
+    await expect(fetch('https://api.notion.com/v1/pages/test')).rejects.toThrow('Unmocked API call');
+  });
+
+  it('should have NOTION_TOKEN set to test value', () => {
+    expect(process.env.NOTION_TOKEN).toBe('test_token_default');
+  });
+});
