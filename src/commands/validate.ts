@@ -281,11 +281,47 @@ export function registerValidateCommand(program: Command): void {
           }
         }
         
-        // Health score
-        const healthScore = Math.max(0, 100 - (issues.filter(i => i.severity === 'error').length * 10) - 
-                                           (issues.filter(i => i.severity === 'warning').length * 3));
-        
-        console.log(`\n📊 Health Score: ${healthScore}/100`);
+        // Health score with weighted factors
+        const totalEntries = entries.length || 1;
+        const errorRate = issues.filter(i => i.severity === 'error').length / totalEntries;
+        const warningRate = issues.filter(i => i.severity === 'warning').length / totalEntries;
+        const overdueRate = issues.filter(i => i.type === 'overdue').length / totalEntries;
+        const staleRate = issues.filter(i => i.type === 'stale').length / totalEntries;
+
+        // Property fill rates
+        let totalFillRate = 0;
+        let propCount = 0;
+        for (const [propName] of Object.entries(db.properties)) {
+          let filled = 0;
+          for (const entry of entries) {
+            const prop = entry.properties[propName];
+            if (prop && !isPropertyEmpty(prop as Record<string, unknown>)) {
+              filled++;
+            }
+          }
+          totalFillRate += filled / totalEntries;
+          propCount++;
+        }
+        const avgFillRate = propCount > 0 ? totalFillRate / propCount : 1;
+
+        // Weighted score: fill rate 30%, errors 30%, warnings 20%, timeliness 20%
+        const fillScore = avgFillRate * 100;
+        const errorScore = Math.max(0, 100 - errorRate * 500);
+        const warningScore = Math.max(0, 100 - warningRate * 200);
+        const timelinessScore = Math.max(0, 100 - (overdueRate + staleRate) * 300);
+
+        const healthScore = Math.round(
+          fillScore * 0.3 + errorScore * 0.3 + warningScore * 0.2 + timelinessScore * 0.2
+        );
+
+        const emoji = healthScore >= 80 ? '🟢' : healthScore >= 50 ? '🟡' : '🔴';
+        console.log(`\n${'═'.repeat(40)}`);
+        console.log(`📊 Health Score: ${healthScore}/100 ${emoji}`);
+        console.log(`${'═'.repeat(40)}`);
+        console.log(`   Fill rate:    ${Math.round(fillScore)}/100 (weight: 30%)`);
+        console.log(`   Errors:       ${Math.round(errorScore)}/100 (weight: 30%)`);
+        console.log(`   Warnings:     ${Math.round(warningScore)}/100 (weight: 20%)`);
+        console.log(`   Timeliness:   ${Math.round(timelinessScore)}/100 (weight: 20%)`);
         
       } catch (error) {
         console.error('Error:', (error as Error).message);
@@ -352,24 +388,18 @@ export function registerValidateCommand(program: Command): void {
           }
         }
         
-        // Run checks
+        // Run filter-based checks
         let totalIssues = 0;
-        
+
         for (const check of checks) {
           try {
-            const result = await client.post(`databases/${databaseId}/query`, {
-              filter: check.filter,
-              page_size: 1,
-            }) as { results: Page[] };
-            
-            // Get actual count with a second query
             const countResult = await client.post(`databases/${databaseId}/query`, {
               filter: check.filter,
               page_size: 100,
             }) as { results: Page[] };
-            
+
             const count = countResult.results.length;
-            
+
             if (count > 0) {
               const icon = check.severity === 'error' ? '❌' : '⚠️';
               console.log(`${icon} ${check.name}: ${count} found`);
@@ -381,7 +411,32 @@ export function registerValidateCommand(program: Command): void {
             console.log(`⏭️ ${check.name}: skipped (filter not supported)`);
           }
         }
-        
+
+        // Check for duplicate titles (requires fetching entries)
+        const allEntries = await client.post(`databases/${databaseId}/query`, {
+          page_size: 100,
+        }) as { results: Page[] };
+
+        const titleCounts = new Map<string, number>();
+        for (const entry of allEntries.results) {
+          const title = getPageTitle(entry).toLowerCase().trim();
+          if (title && title !== 'untitled') {
+            titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+          }
+        }
+
+        const duplicates = [...titleCounts.entries()].filter(([, count]) => count > 1);
+        if (duplicates.length > 0) {
+          const dupeCount = duplicates.reduce((sum, [, count]) => sum + count, 0);
+          console.log(`⚠️ Duplicate titles: ${duplicates.length} titles repeated (${dupeCount} entries)`);
+          for (const [title, count] of duplicates.slice(0, 3)) {
+            console.log(`   "${title}" appears ${count} times`);
+          }
+          totalIssues += dupeCount;
+        } else {
+          console.log('✅ Duplicate titles: OK');
+        }
+
         console.log(`\nTotal issues: ${totalIssues}`);
         
       } catch (error) {
@@ -469,15 +524,34 @@ export function registerValidateCommand(program: Command): void {
         
         console.log('Property fill rates:');
         const sortedFillRates = Object.entries(fillRates)
-          .sort((a, b) => a[1] - b[1])
-          .slice(0, 10);
-        
+          .sort((a, b) => b[1] - a[1]);
+
         for (const [prop, rate] of sortedFillRates) {
           const bar = '█'.repeat(Math.ceil(rate / 10)) + '░'.repeat(10 - Math.ceil(rate / 10));
           const icon = rate >= 80 ? '✅' : rate >= 50 ? '⚠️' : '❌';
           console.log(`  ${icon} ${prop.padEnd(25)} ${bar} ${rate}%`);
         }
-        
+
+        // Recommendations
+        const recommendations: string[] = [];
+        const lowFill = sortedFillRates.filter(([, r]) => r < 50);
+        if (lowFill.length > 0) {
+          recommendations.push(`Fill in "${lowFill[0][0]}" (only ${lowFill[0][1]}% populated)`);
+        }
+        if (completionRate < 30) {
+          recommendations.push('Completion rate is low, review stuck or abandoned items');
+        }
+        if (recentlyEdited < entries.length * 0.1) {
+          recommendations.push('Most entries are stale, consider archiving inactive items');
+        }
+
+        if (recommendations.length > 0) {
+          console.log('\nRecommendations:');
+          for (const rec of recommendations) {
+            console.log(`  -> ${rec}`);
+          }
+        }
+
       } catch (error) {
         console.error('Error:', (error as Error).message);
         process.exit(1);
