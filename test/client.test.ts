@@ -186,20 +186,50 @@ describe('NotionClient', () => {
       );
     });
 
-    it('should handle 429 Rate Limited', async () => {
+    it('should retry on 429 Rate Limited and throw after max retries', async () => {
       const { NotionClient } = await import('../src/client');
-      const client = new NotionClient({ token: 'test_token' });
+      const client = new NotionClient({ token: 'test_token', maxRetries: 1 });
 
       global.fetch = mockNotionError(429, 'Rate limited');
 
       await expect(client.request('search')).rejects.toThrow(
         'Notion API Error (429): Rate limited'
       );
+      // 1 initial + 1 retry = 2 calls
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle 500 Internal Server Error', async () => {
+    it('should retry on 500 and succeed on second attempt', async () => {
       const { NotionClient } = await import('../src/client');
-      const client = new NotionClient({ token: 'test_token' });
+      const client = new NotionClient({ token: 'test_token', maxRetries: 2 });
+
+      let callCount = 0;
+      global.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: new Headers(),
+            json: () => Promise.resolve({ message: 'Internal server error' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ id: 'page-123' }),
+        });
+      });
+
+      const result = await client.request('pages/123');
+      expect(result).toEqual({ id: 'page-123' });
+      expect(callCount).toBe(2);
+    });
+
+    it('should throw 500 after exhausting retries', async () => {
+      const { NotionClient } = await import('../src/client');
+      const client = new NotionClient({ token: 'test_token', maxRetries: 0 });
 
       global.fetch = mockNotionError(500, 'Internal server error');
 
