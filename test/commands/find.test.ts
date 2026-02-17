@@ -189,52 +189,33 @@ describe('Find Command', () => {
       }));
     });
 
-    // NOTE: These tests expose a bug - "modified today" and "created today"
-    // patterns never match because "today" pattern is checked first.
-    // Tests adjusted to match actual behavior.
-    it('should find items modified today (currently matches "today" instead)', async () => {
-      const dbWithDate = {
-        ...mockDatabase,
-        properties: {
-          ...mockDatabase.properties,
-          'Due Date': { id: 'due', name: 'Due Date', type: 'date' },
-        },
-      };
-      mockClient.get.mockResolvedValue(dbWithDate);
+    it('should find items modified today using timestamp filter', async () => {
+      mockClient.get.mockResolvedValue(mockDatabase);
       mockClient.post.mockResolvedValue(createPaginatedResult([]));
 
       await program.parseAsync(['node', 'test', 'find', 'modified today', '--database', 'db-123']);
 
-      // BUG: Should use timestamp filter, but "today" pattern matches first
       expect(mockClient.post).toHaveBeenCalledWith('databases/db-123/query', expect.objectContaining({
         filter: expect.objectContaining({
-          property: 'Due Date',
-          date: expect.objectContaining({
-            equals: expect.any(String),
+          timestamp: 'last_edited_time',
+          last_edited_time: expect.objectContaining({
+            on_or_after: expect.any(String),
           }),
         }),
       }));
     });
 
-    it('should find items created today (currently matches "today" instead)', async () => {
-      const dbWithDate = {
-        ...mockDatabase,
-        properties: {
-          ...mockDatabase.properties,
-          'Due Date': { id: 'due', name: 'Due Date', type: 'date' },
-        },
-      };
-      mockClient.get.mockResolvedValue(dbWithDate);
+    it('should find items created today using timestamp filter', async () => {
+      mockClient.get.mockResolvedValue(mockDatabase);
       mockClient.post.mockResolvedValue(createPaginatedResult([]));
 
       await program.parseAsync(['node', 'test', 'find', 'created today', '--database', 'db-123']);
 
-      // BUG: Should use timestamp filter, but "today" pattern matches first
       expect(mockClient.post).toHaveBeenCalledWith('databases/db-123/query', expect.objectContaining({
         filter: expect.objectContaining({
-          property: 'Due Date',
-          date: expect.objectContaining({
-            equals: expect.any(String),
+          timestamp: 'created_time',
+          created_time: expect.objectContaining({
+            on_or_after: expect.any(String),
           }),
         }),
       }));

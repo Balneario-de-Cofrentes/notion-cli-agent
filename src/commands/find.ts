@@ -67,18 +67,18 @@ function parseQuery(query: string): {
     result.assigneeFilter = 'empty';
   }
   
-  // Date patterns
-  if (lowerQuery.includes('overdue') || lowerQuery.includes('vencid') || 
+  // Date patterns (most specific first to avoid greedy matching)
+  if (lowerQuery.includes('modified today') || (lowerQuery.includes('modificad') && lowerQuery.includes('hoy'))) {
+    result.dateFilter = { type: 'last_edited_today' };
+  } else if (lowerQuery.includes('created today') || (lowerQuery.includes('cread') && lowerQuery.includes('hoy'))) {
+    result.dateFilter = { type: 'created_today' };
+  } else if (lowerQuery.includes('overdue') || lowerQuery.includes('vencid') ||
       lowerQuery.includes('past due') || lowerQuery.includes('atrasad')) {
     result.dateFilter = { type: 'before', value: new Date().toISOString().split('T')[0] };
-  } else if (lowerQuery.includes('today') || lowerQuery.includes('hoy')) {
-    result.dateFilter = { type: 'equals', value: new Date().toISOString().split('T')[0] };
   } else if (lowerQuery.includes('this week') || lowerQuery.includes('esta semana')) {
     result.dateFilter = { type: 'this_week' };
-  } else if (lowerQuery.includes('modified today') || lowerQuery.includes('modificad') && lowerQuery.includes('hoy')) {
-    result.dateFilter = { type: 'last_edited_today' };
-  } else if (lowerQuery.includes('created today') || lowerQuery.includes('cread') && lowerQuery.includes('hoy')) {
-    result.dateFilter = { type: 'created_today' };
+  } else if (lowerQuery.includes('today') || lowerQuery.includes('hoy')) {
+    result.dateFilter = { type: 'equals', value: new Date().toISOString().split('T')[0] };
   }
   
   // Priority patterns
