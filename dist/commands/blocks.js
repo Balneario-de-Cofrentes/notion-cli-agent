@@ -1,5 +1,6 @@
 import { getClient } from '../client.js';
 import { formatOutput, formatBlock } from '../utils/format.js';
+import { parseInlineMarkdown } from '../utils/markdown.js';
 export function registerBlocksCommand(program) {
     const blocks = program
         .command('block')
@@ -190,9 +191,10 @@ export function registerBlocksCommand(program) {
         }
     });
 }
-// Block creation helpers
+// Block creation helpers — uses parseInlineMarkdown so that
+// CLI input like "**bold** text" produces properly annotated rich_text
 function createRichText(text) {
-    return [{ type: 'text', text: { content: text } }];
+    return parseInlineMarkdown(text);
 }
 function createParagraph(text) {
     return {

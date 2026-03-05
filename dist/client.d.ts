@@ -5,6 +5,8 @@
 export interface NotionClientOptions {
     token: string;
     version?: string;
+    maxRetries?: number;
+    requestsPerSecond?: number;
 }
 export interface RequestOptions {
     method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -14,6 +16,8 @@ export interface RequestOptions {
 export declare class NotionClient {
     private token;
     private version;
+    private maxRetries;
+    private rateLimiter;
     constructor(options: NotionClientOptions);
     request<T = unknown>(path: string, options?: RequestOptions): Promise<T>;
     get<T = unknown>(path: string, query?: RequestOptions['query']): Promise<T>;

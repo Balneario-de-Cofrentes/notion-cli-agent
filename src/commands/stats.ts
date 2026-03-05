@@ -4,33 +4,15 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
-
-interface Page {
-  id: string;
-  properties: Record<string, unknown>;
-  created_time: string;
-  last_edited_time: string;
-}
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
-  [key: string]: unknown;
-}
+import { getDbTitle } from '../utils/notion-helpers.js';
+import type { Page, Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
   name: string;
 }
 
-function getDbTitle(db: Database): string {
-  return db.title?.map(t => t.plain_text).join('') || 'Untitled';
-}
-
+// Stats-specific version: returns 'true'/'false' for checkboxes and only
+// handles property types relevant to statistical breakdowns.
 function getPropertyValue(prop: Record<string, unknown>): string | null {
   const type = prop.type as string;
   const data = prop[type];

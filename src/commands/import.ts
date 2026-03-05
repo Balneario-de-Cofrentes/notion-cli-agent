@@ -5,17 +5,10 @@ import { Command } from 'commander';
 import { getClient } from '../client.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { markdownToBlocks } from '../utils/markdown.js';
+import type { Database, PropertySchema } from '../types/notion.js';
 
 interface FrontMatter {
-  [key: string]: unknown;
-}
-
-interface Database {
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
   [key: string]: unknown;
 }
 
@@ -84,148 +77,8 @@ function parseFrontMatter(content: string): { frontMatter: FrontMatter; body: st
   return { frontMatter, body };
 }
 
-// Convert markdown to Notion blocks
-function markdownToBlocks(markdown: string): Record<string, unknown>[] {
-  const blocks: Record<string, unknown>[] = [];
-  const lines = markdown.split('\n');
-  let i = 0;
-  
-  while (i < lines.length) {
-    const line = lines[i];
-    
-    // Skip empty lines
-    if (!line.trim()) {
-      i++;
-      continue;
-    }
-    
-    // Headings
-    const h1Match = line.match(/^#\s+(.+)$/);
-    if (h1Match) {
-      blocks.push({
-        object: 'block',
-        type: 'heading_1',
-        heading_1: { rich_text: [{ type: 'text', text: { content: h1Match[1] } }] },
-      });
-      i++;
-      continue;
-    }
-    
-    const h2Match = line.match(/^##\s+(.+)$/);
-    if (h2Match) {
-      blocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: { rich_text: [{ type: 'text', text: { content: h2Match[1] } }] },
-      });
-      i++;
-      continue;
-    }
-    
-    const h3Match = line.match(/^###\s+(.+)$/);
-    if (h3Match) {
-      blocks.push({
-        object: 'block',
-        type: 'heading_3',
-        heading_3: { rich_text: [{ type: 'text', text: { content: h3Match[1] } }] },
-      });
-      i++;
-      continue;
-    }
-    
-    // Bullet list
-    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
-    if (bulletMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: { rich_text: [{ type: 'text', text: { content: bulletMatch[1] } }] },
-      });
-      i++;
-      continue;
-    }
-    
-    // Numbered list
-    const numMatch = line.match(/^\d+\.\s+(.+)$/);
-    if (numMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'numbered_list_item',
-        numbered_list_item: { rich_text: [{ type: 'text', text: { content: numMatch[1] } }] },
-      });
-      i++;
-      continue;
-    }
-    
-    // Checkbox / todo
-    const todoMatch = line.match(/^-\s+\[([ xX])\]\s+(.+)$/);
-    if (todoMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'to_do',
-        to_do: {
-          rich_text: [{ type: 'text', text: { content: todoMatch[2] } }],
-          checked: todoMatch[1].toLowerCase() === 'x',
-        },
-      });
-      i++;
-      continue;
-    }
-    
-    // Quote
-    const quoteMatch = line.match(/^>\s+(.+)$/);
-    if (quoteMatch) {
-      blocks.push({
-        object: 'block',
-        type: 'quote',
-        quote: { rich_text: [{ type: 'text', text: { content: quoteMatch[1] } }] },
-      });
-      i++;
-      continue;
-    }
-    
-    // Code block
-    if (line.startsWith('```')) {
-      const lang = line.slice(3).trim() || 'plain text';
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      blocks.push({
-        object: 'block',
-        type: 'code',
-        code: {
-          rich_text: [{ type: 'text', text: { content: codeLines.join('\n') } }],
-          language: lang,
-        },
-      });
-      i++; // Skip closing ```
-      continue;
-    }
-    
-    // Divider
-    if (line.match(/^---+$/)) {
-      blocks.push({ object: 'block', type: 'divider', divider: {} });
-      i++;
-      continue;
-    }
-    
-    // Regular paragraph
-    if (line.trim()) {
-      blocks.push({
-        object: 'block',
-        type: 'paragraph',
-        paragraph: { rich_text: [{ type: 'text', text: { content: line } }] },
-      });
-    }
-    
-    i++;
-  }
-  
-  return blocks;
-}
+// Convert markdown to Notion blocks — delegated to shared module
+// (see src/utils/markdown.ts for the full implementation with inline formatting support)
 
 // Convert frontmatter to Notion properties
 function frontMatterToProperties(

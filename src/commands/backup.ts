@@ -5,38 +5,9 @@ import { Command } from 'commander';
 import { getClient } from '../client.js';
 import * as fs from 'fs';
 import * as path from 'path';
-
-interface Block {
-  id: string;
-  type: string;
-  has_children?: boolean;
-  [key: string]: unknown;
-}
-
-interface Page {
-  id: string;
-  url?: string;
-  created_time: string;
-  last_edited_time: string;
-  properties: Record<string, unknown>;
-  parent: { type: string; database_id?: string };
-}
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  properties: Record<string, unknown>;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
-}
+import { blocksToMarkdownSync } from '../utils/markdown.js';
+import { fetchAllBlocks, getPageTitle } from '../utils/notion-helpers.js';
+import type { Block, Page, Database } from '../types/notion.js';
 
 function sanitizeFilename(name: string): string {
   return name
@@ -44,28 +15,6 @@ function sanitizeFilename(name: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 100);
-}
-
-async function fetchAllBlocks(
-  client: ReturnType<typeof getClient>,
-  blockId: string
-): Promise<Block[]> {
-  const blocks: Block[] = [];
-  let cursor: string | undefined;
-  
-  do {
-    const params = cursor ? `?start_cursor=${cursor}` : '';
-    const result = await client.get(`blocks/${blockId}/children${params}`) as {
-      results: Block[];
-      has_more: boolean;
-      next_cursor?: string;
-    };
-    
-    blocks.push(...result.results);
-    cursor = result.has_more ? result.next_cursor : undefined;
-  } while (cursor);
-  
-  return blocks;
 }
 
 async function fetchBlocksRecursive(
@@ -263,8 +212,8 @@ function generateMarkdown(page: Page, blocks?: Block[]): string {
   md += '---\n';
   md += `notion_id: "${page.id}"\n`;
   if (page.url) md += `notion_url: "${page.url}"\n`;
-  md += `created: ${page.created_time.split('T')[0]}\n`;
-  md += `updated: ${page.last_edited_time.split('T')[0]}\n`;
+  md += `created: ${(page.created_time || '').split('T')[0]}\n`;
+  md += `updated: ${(page.last_edited_time || '').split('T')[0]}\n`;
   
   // Properties
   for (const [name, value] of Object.entries(page.properties)) {
@@ -288,9 +237,9 @@ function generateMarkdown(page: Page, blocks?: Block[]): string {
   md += '---\n\n';
   md += `# ${title}\n\n`;
   
-  // Content
+  // Content — use shared blocksToMarkdownSync with rich text annotations
   if (blocks) {
-    md += blocksToMarkdown(blocks);
+    md += blocksToMarkdownSync(blocks);
   }
   
   return md;
@@ -324,62 +273,4 @@ function extractPropertyValue(prop: Record<string, unknown>): unknown {
     default:
       return null;
   }
-}
-
-function blocksToMarkdown(blocks: Block[], indent = 0): string {
-  let md = '';
-  const pad = '  '.repeat(indent);
-  
-  for (const block of blocks) {
-    const type = block.type;
-    const data = block[type] as Record<string, unknown> | undefined;
-    
-    if (!data) continue;
-    
-    const richText = data.rich_text as { plain_text: string }[] | undefined;
-    const text = richText?.map(rt => rt.plain_text).join('') || '';
-    
-    switch (type) {
-      case 'paragraph':
-        if (text) md += `${pad}${text}\n\n`;
-        break;
-      case 'heading_1':
-        md += `${pad}# ${text}\n\n`;
-        break;
-      case 'heading_2':
-        md += `${pad}## ${text}\n\n`;
-        break;
-      case 'heading_3':
-        md += `${pad}### ${text}\n\n`;
-        break;
-      case 'bulleted_list_item':
-        md += `${pad}- ${text}\n`;
-        break;
-      case 'numbered_list_item':
-        md += `${pad}1. ${text}\n`;
-        break;
-      case 'to_do':
-        const checked = (data.checked as boolean) ? 'x' : ' ';
-        md += `${pad}- [${checked}] ${text}\n`;
-        break;
-      case 'quote':
-        md += `${pad}> ${text}\n\n`;
-        break;
-      case 'code':
-        const lang = (data.language as string) || '';
-        md += `${pad}\`\`\`${lang}\n${pad}${text}\n${pad}\`\`\`\n\n`;
-        break;
-      case 'divider':
-        md += `${pad}---\n\n`;
-        break;
-    }
-    
-    // Handle children
-    const children = (block as Record<string, unknown>).children as Block[] | undefined;
-    if (children && children.length > 0) {
-      md += blocksToMarkdown(children, indent + 1);
-    }
-  }
-  
-  return md;
 }

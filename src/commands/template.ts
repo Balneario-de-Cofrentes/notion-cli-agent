@@ -3,21 +3,11 @@
  */
 import { Command } from 'commander';
 import { getClient } from '../client.js';
+import { fetchAllBlocks } from '../utils/notion-helpers.js';
+import type { Block, Page } from '../types/notion.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-
-interface Block {
-  id: string;
-  type: string;
-  has_children?: boolean;
-  [key: string]: unknown;
-}
-
-interface Page {
-  id: string;
-  properties: Record<string, unknown>;
-}
 
 const TEMPLATES_DIR = path.join(os.homedir(), '.notion-cli', 'templates');
 
@@ -48,35 +38,20 @@ function cleanBlockForTemplate(block: Block): Record<string, unknown> {
   return { object: 'block', ...rest };
 }
 
-// Fetch all blocks recursively
+// Fetch all blocks recursively (uses shared fetchAllBlocks for pagination)
 async function fetchBlocksRecursive(
   client: ReturnType<typeof getClient>,
   blockId: string
 ): Promise<Block[]> {
-  const blocks: Block[] = [];
-  let cursor: string | undefined;
-  
-  do {
-    const params = cursor ? `?start_cursor=${cursor}` : '';
-    const result = await client.get(`blocks/${blockId}/children${params}`) as {
-      results: Block[];
-      has_more: boolean;
-      next_cursor?: string;
-    };
-    
-    for (const block of result.results) {
-      blocks.push(block);
-      
-      // Recursively fetch children
-      if (block.has_children) {
-        const children = await fetchBlocksRecursive(client, block.id);
-        (block as Record<string, unknown>).children = children;
-      }
+  const blocks = await fetchAllBlocks(client, blockId);
+
+  for (const block of blocks) {
+    if (block.has_children) {
+      const children = await fetchBlocksRecursive(client, block.id);
+      (block as Record<string, unknown>).children = children;
     }
-    
-    cursor = result.has_more ? result.next_cursor : undefined;
-  } while (cursor);
-  
+  }
+
   return blocks;
 }
 

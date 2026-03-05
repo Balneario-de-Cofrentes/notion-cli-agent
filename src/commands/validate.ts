@@ -4,25 +4,8 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
-
-interface Page {
-  id: string;
-  url?: string;
-  created_time: string;
-  last_edited_time: string;
-  properties: Record<string, unknown>;
-}
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
-  [key: string]: unknown;
-}
+import { getPageTitle } from '../utils/notion-helpers.js';
+import type { Page, Database, PropertySchema } from '../types/notion.js';
 
 interface ValidationIssue {
   severity: 'error' | 'warning' | 'info';
@@ -32,16 +15,6 @@ interface ValidationIssue {
   pageTitle?: string;
   property?: string;
   suggestion?: string;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
 }
 
 function getPropertyValue(prop: Record<string, unknown>): unknown {

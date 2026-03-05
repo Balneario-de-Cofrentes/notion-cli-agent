@@ -5,178 +5,11 @@ import { Command } from 'commander';
 import { getClient } from '../client.js';
 import * as fs from 'fs';
 import * as path from 'path';
-
-interface RichText {
-  type: string;
-  plain_text: string;
-  href?: string | null;
-  annotations?: {
-    bold?: boolean;
-    italic?: boolean;
-    strikethrough?: boolean;
-    underline?: boolean;
-    code?: boolean;
-  };
-  text?: {
-    content: string;
-    link?: { url: string } | null;
-  };
-}
-
-interface Block {
-  id: string;
-  type: string;
-  has_children?: boolean;
-  [key: string]: unknown;
-}
-
-interface Page {
-  id: string;
-  properties: Record<string, unknown>;
-  url?: string;
-  created_time?: string;
-  last_edited_time?: string;
-}
-
-function richTextToMarkdown(richText: RichText[]): string {
-  if (!richText || !Array.isArray(richText)) return '';
-  
-  return richText.map(rt => {
-    let text = rt.plain_text || '';
-    
-    if (rt.annotations) {
-      if (rt.annotations.code) text = `\`${text}\``;
-      if (rt.annotations.bold) text = `**${text}**`;
-      if (rt.annotations.italic) text = `*${text}*`;
-      if (rt.annotations.strikethrough) text = `~~${text}~~`;
-    }
-    
-    if (rt.href) {
-      text = `[${text}](${rt.href})`;
-    }
-    
-    return text;
-  }).join('');
-}
-
-function getBlockContent(block: Block): string {
-  const type = block.type;
-  const data = block[type] as Record<string, unknown> | undefined;
-  
-  if (!data) return '';
-  
-  const richText = data.rich_text as RichText[] | undefined;
-  const text = richTextToMarkdown(richText || []);
-  
-  switch (type) {
-    case 'paragraph':
-      return text ? `${text}\n` : '\n';
-    
-    case 'heading_1':
-      return `# ${text}\n`;
-    
-    case 'heading_2':
-      return `## ${text}\n`;
-    
-    case 'heading_3':
-      return `### ${text}\n`;
-    
-    case 'bulleted_list_item':
-      return `- ${text}\n`;
-    
-    case 'numbered_list_item':
-      return `1. ${text}\n`;
-    
-    case 'to_do':
-      const checked = (data.checked as boolean) ? 'x' : ' ';
-      return `- [${checked}] ${text}\n`;
-    
-    case 'toggle':
-      return `<details>\n<summary>${text}</summary>\n\n</details>\n`;
-    
-    case 'quote':
-      return `> ${text}\n`;
-    
-    case 'callout':
-      const emoji = (data.icon as { emoji?: string })?.emoji || '💡';
-      return `> ${emoji} ${text}\n`;
-    
-    case 'code':
-      const lang = (data.language as string) || '';
-      const code = richTextToMarkdown(richText || []);
-      return `\`\`\`${lang}\n${code}\n\`\`\`\n`;
-    
-    case 'divider':
-      return `---\n`;
-    
-    case 'image':
-      const imageData = data as { type: string; file?: { url: string }; external?: { url: string }; caption?: RichText[] };
-      const imageUrl = imageData.type === 'file' 
-        ? imageData.file?.url 
-        : imageData.external?.url;
-      const caption = richTextToMarkdown(imageData.caption || []);
-      return `![${caption}](${imageUrl})\n`;
-    
-    case 'bookmark':
-      const bookmarkUrl = (data as { url?: string }).url || '';
-      return `[${bookmarkUrl}](${bookmarkUrl})\n`;
-    
-    case 'equation':
-      const expr = (data as { expression?: string }).expression || '';
-      return `$$${expr}$$\n`;
-    
-    case 'table_of_contents':
-      return `[TOC]\n`;
-    
-    default:
-      // For unsupported blocks, add a comment
-      return `<!-- Unsupported block type: ${type} -->\n`;
-  }
-}
-
-async function fetchAllBlocks(client: ReturnType<typeof getClient>, blockId: string): Promise<Block[]> {
-  const blocks: Block[] = [];
-  let cursor: string | undefined;
-  
-  do {
-    const params = cursor ? `?start_cursor=${cursor}` : '';
-    const result = await client.get(`blocks/${blockId}/children${params}`) as {
-      results: Block[];
-      has_more: boolean;
-      next_cursor?: string;
-    };
-    
-    blocks.push(...result.results);
-    cursor = result.has_more ? result.next_cursor : undefined;
-  } while (cursor);
-  
-  return blocks;
-}
-
-async function blocksToMarkdown(client: ReturnType<typeof getClient>, blockId: string, indent = 0): Promise<string> {
-  const blocks = await fetchAllBlocks(client, blockId);
-  let markdown = '';
-  const indentStr = '  '.repeat(indent);
-  
-  for (const block of blocks) {
-    let content = getBlockContent(block);
-    
-    // Add indentation for nested content
-    if (indent > 0) {
-      content = content.split('\n').map(line => line ? indentStr + line : '').join('\n');
-    }
-    
-    markdown += content;
-    
-    // Recursively handle children
-    if (block.has_children) {
-      const childContent = await blocksToMarkdown(client, block.id, indent + 1);
-      markdown += childContent;
-    }
-  }
-  
-  return markdown;
-}
+import {
+  richTextToMarkdown,
+} from '../utils/markdown.js';
+import { blocksToMarkdownAsync } from '../utils/notion-helpers.js';
+import type { RichText, Block, Page } from '../types/notion.js';
 
 function getPageTitle(page: Page): string {
   const props = page.properties;
@@ -356,7 +189,7 @@ export function registerExportCommand(program: Command): void {
         
         // Add content
         if (options.content !== false) {
-          const content = await blocksToMarkdown(client, pageId);
+          const content = await blocksToMarkdownAsync(client, pageId);
           output += content;
         }
         
@@ -425,7 +258,7 @@ export function registerExportCommand(program: Command): void {
             
             if (options.content) {
               try {
-                const pageContent = await blocksToMarkdown(client, page.id);
+                const pageContent = await blocksToMarkdownAsync(client, page.id);
                 content += pageContent;
               } catch {
                 content += `<!-- Failed to fetch content -->\n`;

@@ -4,43 +4,8 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
-
-interface Page {
-  id: string;
-  url?: string;
-  properties: Record<string, unknown>;
-  parent: { type: string; database_id?: string; page_id?: string };
-}
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
-  relation?: {
-    database_id: string;
-  };
-  [key: string]: unknown;
-}
-
-interface Block {
-  id: string;
-  type: string;
-  [key: string]: unknown;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
-}
+import { getPageTitle } from '../utils/notion-helpers.js';
+import type { Page, Database, PropertySchema, Block } from '../types/notion.js';
 
 export function registerRelationsCommand(program: Command): void {
   const relations = program
@@ -86,10 +51,10 @@ export function registerRelationsCommand(program: Command): void {
           
           // Find relation properties that point to this database
           for (const [propName, schema] of Object.entries(db.properties)) {
-            if (schema.type === 'relation' && schema.relation?.database_id) {
+            if (schema.type === 'relation' && (schema.relation as { database_id?: string })?.database_id) {
               // Query for entries with relation to our page
               try {
-                const relResult = await client.post(`databases/${schema.relation.database_id}/query`, {
+                const relResult = await client.post(`databases/${(schema.relation as { database_id: string }).database_id}/query`, {
                   page_size: 100,
                 }) as { results: Page[] };
                 

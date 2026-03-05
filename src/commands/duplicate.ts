@@ -3,33 +3,8 @@
  */
 import { Command } from 'commander';
 import { getClient } from '../client.js';
-
-interface Block {
-  id: string;
-  type: string;
-  has_children?: boolean;
-  [key: string]: unknown;
-}
-
-interface Page {
-  id: string;
-  parent: { type: string; database_id?: string; page_id?: string };
-  properties: Record<string, unknown>;
-  url?: string;
-}
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  id: string;
-  name: string;
-  type: string;
-  [key: string]: unknown;
-}
+import { fetchAllBlocks, getPageTitle, getDbTitle } from '../utils/notion-helpers.js';
+import type { Block, Page, Database } from '../types/notion.js';
 
 // Clean block for duplication (remove IDs, etc.)
 function cleanBlockForDuplication(block: Block): Record<string, unknown> {
@@ -49,29 +24,6 @@ function cleanBlockForDuplication(block: Block): Record<string, unknown> {
   }
   
   return { object: 'block', ...rest };
-}
-
-// Fetch all blocks from a page
-async function fetchAllBlocks(
-  client: ReturnType<typeof getClient>,
-  blockId: string
-): Promise<Block[]> {
-  const blocks: Block[] = [];
-  let cursor: string | undefined;
-  
-  do {
-    const params = cursor ? `?start_cursor=${cursor}` : '';
-    const result = await client.get(`blocks/${blockId}/children${params}`) as {
-      results: Block[];
-      has_more: boolean;
-      next_cursor?: string;
-    };
-    
-    blocks.push(...result.results);
-    cursor = result.has_more ? result.next_cursor : undefined;
-  } while (cursor);
-  
-  return blocks;
 }
 
 // Recursively duplicate blocks (handles children)
@@ -113,20 +65,6 @@ async function duplicateBlocksRecursive(
   }
   
   return count;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
-}
-
-function getDbTitle(db: Database): string {
-  return db.title?.map(t => t.plain_text).join('') || 'Untitled';
 }
 
 export function registerDuplicateCommand(program: Command): void {
@@ -327,7 +265,7 @@ export function registerDuplicateCommand(program: Command): void {
           parent: { page_id: options.to },
           title: [{ text: { content: newTitle } }],
           properties: newProperties,
-        }) as Database & { url?: string };
+        }) as Database;
         
         console.log(`\n✅ Database schema cloned`);
         console.log(`   Original: ${sourceTitle}`);

@@ -5,24 +5,8 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
-
-interface Page {
-  id: string;
-  url?: string;
-  properties: Record<string, unknown>;
-  created_time?: string;
-  last_edited_time?: string;
-}
-
-interface Database {
-  id: string;
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
-  [key: string]: unknown;
-}
+import { getPageTitle } from '../utils/notion-helpers.js';
+import type { Page, Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
   name: string;
@@ -189,16 +173,6 @@ function findStatusValue(
   }
   
   return null;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
 }
 
 export function registerFindCommand(program: Command): void {

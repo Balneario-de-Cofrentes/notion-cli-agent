@@ -5,21 +5,8 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  description?: { plain_text: string }[];
-  properties: Record<string, PropertySchema>;
-  url?: string;
-}
-
-interface PropertySchema {
-  id: string;
-  name: string;
-  type: string;
-  [key: string]: unknown;
-}
+import { getDbTitle, getDbDescription } from '../utils/notion-helpers.js';
+import type { Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
   id: string;
@@ -31,14 +18,6 @@ interface StatusGroup {
   id: string;
   name: string;
   option_ids: string[];
-}
-
-function getDbTitle(db: Database): string {
-  return db.title?.map(t => t.plain_text).join('') || 'Untitled';
-}
-
-function getDbDescription(db: Database): string {
-  return db.description?.map(t => t.plain_text).join('') || '';
 }
 
 function formatPropertyType(prop: PropertySchema): string {

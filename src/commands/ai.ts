@@ -4,36 +4,8 @@
  */
 import { Command } from 'commander';
 import { getClient } from '../client.js';
-
-interface Block {
-  id: string;
-  type: string;
-  [key: string]: unknown;
-}
-
-interface RichText {
-  plain_text: string;
-}
-
-interface Page {
-  id: string;
-  url?: string;
-  created_time: string;
-  last_edited_time: string;
-  properties: Record<string, unknown>;
-}
-
-interface Database {
-  id: string;
-  title: { plain_text: string }[];
-  description?: { plain_text: string }[];
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
-  [key: string]: unknown;
-}
+import { fetchAllBlocks, getPageTitle, getDbTitle, getDbDescription, getPropertyValue } from '../utils/notion-helpers.js';
+import type { Block, Page, Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
   name: string;
@@ -46,7 +18,7 @@ function extractBlockText(block: Block): string {
   
   if (!data) return '';
   
-  const richText = data.rich_text as RichText[] | undefined;
+  const richText = data.rich_text as { plain_text: string }[] | undefined;
   const text = richText?.map(rt => rt.plain_text).join('') || '';
   
   switch (type) {
@@ -71,74 +43,6 @@ function extractBlockText(block: Block): string {
       return text;
     default:
       return text;
-  }
-}
-
-// Fetch all blocks from a page
-async function fetchAllBlocks(
-  client: ReturnType<typeof getClient>,
-  pageId: string
-): Promise<Block[]> {
-  const blocks: Block[] = [];
-  let cursor: string | undefined;
-  
-  do {
-    const params = cursor ? `?start_cursor=${cursor}` : '';
-    const result = await client.get(`blocks/${pageId}/children${params}`) as {
-      results: Block[];
-      has_more: boolean;
-      next_cursor?: string;
-    };
-    
-    blocks.push(...result.results);
-    cursor = result.has_more ? result.next_cursor : undefined;
-  } while (cursor);
-  
-  return blocks;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
-}
-
-function getDbTitle(db: Database): string {
-  return db.title?.map(t => t.plain_text).join('') || 'Untitled';
-}
-
-function getPropertyValue(prop: Record<string, unknown>): string | null {
-  const type = prop.type as string;
-  const data = prop[type];
-  
-  switch (type) {
-    case 'title':
-    case 'rich_text':
-      return (data as RichText[])?.map(t => t.plain_text).join('') || null;
-    case 'select':
-    case 'status':
-      return (data as { name?: string })?.name || null;
-    case 'multi_select':
-      return (data as { name: string }[])?.map(s => s.name).join(', ') || null;
-    case 'date':
-      const dateData = data as { start?: string; end?: string } | null;
-      return dateData?.start || null;
-    case 'number':
-      return data != null ? String(data) : null;
-    case 'checkbox':
-      return data ? 'Yes' : 'No';
-    case 'url':
-    case 'email':
-    case 'phone_number':
-      return data as string || null;
-    case 'people':
-      return (data as { name?: string }[])?.map(p => p.name).filter(Boolean).join(', ') || null;
-    default:
-      return null;
   }
 }
 
@@ -348,7 +252,7 @@ export function registerAICommand(program: Command): void {
         // Get database
         const db = await client.get(`databases/${databaseId}`) as Database;
         const title = getDbTitle(db);
-        const description = db.description?.map(t => t.plain_text).join('') || '';
+        const description = getDbDescription(db);
         
         // Get example entries
         const examples = await client.post(`databases/${databaseId}/query`, {

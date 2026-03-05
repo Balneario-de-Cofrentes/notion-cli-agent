@@ -5,30 +5,8 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { parseFilter, parseProperties } from '../utils/format.js';
-
-interface Page {
-  id: string;
-  properties: Record<string, unknown>;
-}
-
-interface Database {
-  properties: Record<string, PropertySchema>;
-}
-
-interface PropertySchema {
-  type: string;
-  [key: string]: unknown;
-}
-
-function getPageTitle(page: Page): string {
-  for (const value of Object.values(page.properties)) {
-    const prop = value as { type: string; title?: { plain_text: string }[] };
-    if (prop.type === 'title' && prop.title) {
-      return prop.title.map(t => t.plain_text).join('') || 'Untitled';
-    }
-  }
-  return 'Untitled';
-}
+import { getPageTitle } from '../utils/notion-helpers.js';
+import type { Page, Database, PropertySchema } from '../types/notion.js';
 
 // Parse simple where clause: "Status=Done,Priority=High"
 function parseWhereClause(
