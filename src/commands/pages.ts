@@ -419,6 +419,12 @@ export function registerPagesCommand(program: Command): void {
           return;
         }
 
+        // Nothing to do — warn and exit
+        if (blocksToDelete.length === 0 && newBlocks.length === 0) {
+          console.error('Warning: nothing to do — specify --delete and/or --file/--markdown');
+          return;
+        }
+
         // Execute: delete blocks
         for (const block of blocksToDelete) {
           await client.delete(`blocks/${block.id}`);
