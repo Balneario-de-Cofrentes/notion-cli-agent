@@ -258,8 +258,7 @@ export function registerPagesCommand(program: Command): void {
     .command('write <page_id>')
     .description('Write Markdown content to a page (from file or stdin)')
     .option('-f, --file <path>', 'Read Markdown from file')
-    .option('--replace', 'Replace existing content (deletes all blocks first)')
-    .option('--append', 'Append to existing content (default)')
+    .option('--replace', 'Replace existing content (deletes all blocks first). Default is append')
     .option('--dry-run', 'Show what would be written without making changes')
     .action(async (pageId: string, options) => {
       try {
