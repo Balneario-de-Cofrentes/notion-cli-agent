@@ -99,7 +99,7 @@ pnpm link --global
 
 ### 1. Get your API token
 
-1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations)
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations) (Choose "Internal Integrations" for personal use)
 2. Click "New integration"
 3. Give it a name and select capabilities
 4. Copy the token (starts with `ntn_` or `secret_`)
