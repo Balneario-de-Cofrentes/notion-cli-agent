@@ -18,6 +18,9 @@ export NOTION_TOKEN="ntn_your_token_here"
 
 # Get the full quick reference guide
 notion quickstart
+
+# Install skills
+npx skills add Balneario-de-Cofrentes/notion-cli-agent
 ```
 
 The `quickstart` command outputs a complete guide with all common operations, examples, and tips — perfect for AI agents to learn the CLI instantly.
