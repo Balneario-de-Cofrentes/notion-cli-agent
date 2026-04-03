@@ -210,6 +210,38 @@ describe('Pages Command', () => {
       });
     });
 
+    it('should use database schema types for --prop when parent is database', async () => {
+      // mockDatabase has Status as type 'status' and Priority as type 'select'
+      setupDatabaseResolution(mockClient);
+      const createdPage = { ...mockPage, id: 'new-page-123', url: 'https://notion.so/new-page-123' };
+      mockClient.post.mockResolvedValue(createdPage);
+
+      await program.parseAsync([
+        'node', 'test', 'page', 'create',
+        '--parent', 'db-123',
+        '--title', 'New Task',
+        '--prop', 'Status=In Progress',
+        '--prop', 'Priority=High',
+      ]);
+
+      // Schema-aware: Status should use 'status' type (not 'select')
+      // Priority stays 'select' because that's its actual schema type
+      expect(mockClient.post).toHaveBeenCalledWith('pages', {
+        parent: { database_id: 'db-123' },
+        properties: {
+          Name: {
+            title: [{ text: { content: 'New Task' } }],
+          },
+          Status: {
+            status: { name: 'In Progress' },
+          },
+          Priority: {
+            select: { name: 'High' },
+          },
+        },
+      });
+    });
+
     it('should create page with initial content', async () => {
       const createdPage = { ...mockPage, id: 'new-page-123', url: 'https://notion.so/new-page-123' };
       mockClient.post.mockResolvedValue(createdPage);

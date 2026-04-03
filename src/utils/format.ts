@@ -156,7 +156,7 @@ function buildTypedProperty(type: string, value: string): unknown {
   }
 }
 
-export function parseProperties(props: string[]): Record<string, unknown> {
+export function parseProperties(props: string[], schemaTypes?: Record<string, string>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
   for (const prop of props) {
@@ -177,6 +177,12 @@ export function parseProperties(props: string[]): Record<string, unknown> {
     // If type hint is provided, use it directly
     if (typeHint) {
       result[key] = buildTypedProperty(typeHint, value);
+      continue;
+    }
+
+    // If schema provides the property type, use it instead of guessing
+    if (schemaTypes && schemaTypes[key]) {
+      result[key] = buildTypedProperty(schemaTypes[key], value);
       continue;
     }
 

@@ -351,9 +351,45 @@ describe('Format Utilities', () => {
   });
 
   describe('parseProperties()', () => {
-    it('should parse text properties as select', () => {
+    it('should parse text properties as select (no schema)', () => {
       const props = ['Status=In Progress'];
       const result = parseProperties(props);
+      expect(result).toEqual({
+        Status: { select: { name: 'In Progress' } },
+      });
+    });
+
+    it('should parse status property when schema is provided', () => {
+      const props = ['Status=In Progress'];
+      const schemaTypes = { Status: 'status' };
+      const result = parseProperties(props, schemaTypes);
+      expect(result).toEqual({
+        Status: { status: { name: 'In Progress' } },
+      });
+    });
+
+    it('should use schema type for select when schema says select', () => {
+      const props = ['Priority=High'];
+      const schemaTypes = { Priority: 'select' };
+      const result = parseProperties(props, schemaTypes);
+      expect(result).toEqual({
+        Priority: { select: { name: 'High' } },
+      });
+    });
+
+    it('should fall back to heuristic when property not in schema', () => {
+      const props = ['Unknown=SomeValue'];
+      const schemaTypes = { Status: 'status' };
+      const result = parseProperties(props, schemaTypes);
+      expect(result).toEqual({
+        Unknown: { select: { name: 'SomeValue' } },
+      });
+    });
+
+    it('should prefer type hint over schema type', () => {
+      const props = ['Status:select=In Progress'];
+      const schemaTypes = { Status: 'status' };
+      const result = parseProperties(props, schemaTypes);
       expect(result).toEqual({
         Status: { select: { name: 'In Progress' } },
       });

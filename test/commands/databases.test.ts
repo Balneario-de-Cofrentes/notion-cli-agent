@@ -81,6 +81,30 @@ describe('Databases Command', () => {
       });
     });
 
+    it('should combine multiple --filter flags with AND logic', async () => {
+      setupDatabaseResolution(mockClient);
+      const result = createPaginatedResult([mockPage]);
+      mockClient.post.mockResolvedValue(result);
+
+      const filter1 = JSON.stringify({ property: 'Status', status: { equals: 'Done' } });
+      const filter2 = JSON.stringify({ property: 'Priority', select: { equals: 'High' } });
+      await program.parseAsync([
+        'node', 'test', 'database', 'query', 'db-123',
+        '--filter', filter1,
+        '--filter', filter2,
+      ]);
+
+      expect(mockClient.post).toHaveBeenCalledWith('data_sources/ds-456/query', {
+        filter: {
+          and: [
+            { property: 'Status', status: { equals: 'Done' } },
+            { property: 'Priority', select: { equals: 'High' } },
+          ],
+        },
+        page_size: 100,
+      });
+    });
+
     it('should query with simple filter options', async () => {
       setupDatabaseResolution(mockClient);
       const result = createPaginatedResult([mockPage]);

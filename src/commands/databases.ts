@@ -41,7 +41,7 @@ export function registerDatabasesCommand(program: Command): void {
   databases
     .command('query <database_id>')
     .description('Query a database')
-    .option('-f, --filter <json>', 'Filter as JSON string')
+    .option('-f, --filter <json>', 'Filter as JSON string (repeatable)', (v: string, a: string[]) => [...a, v], [] as string[])
     .option('--filter-prop <property>', 'Property to filter on (repeatable)', (v, a: string[]) => [...a, v], [] as string[])
     .option('--filter-type <type>', 'Filter type: equals, contains, etc. (repeatable)', (v, a: string[]) => [...a, v], [] as string[])
     .option('--filter-value <value>', 'Filter value (repeatable)', (v, a: string[]) => [...a, v], [] as string[])
@@ -70,8 +70,9 @@ export function registerDatabasesCommand(program: Command): void {
       }
 
       // Handle filter
-      if (!body.filter && options.filter) {
-        body.filter = JSON.parse(options.filter);
+      if (!body.filter && options.filter && options.filter.length > 0) {
+        const filters = options.filter.map((f: string) => JSON.parse(f));
+        body.filter = filters.length > 1 ? { and: filters } : filters[0];
       } else if (!body.filter && options.filterProp.length > 0) {
         const props: string[] = options.filterProp;
         const types: string[] = options.filterType;
