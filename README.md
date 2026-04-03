@@ -184,6 +184,30 @@ notion page archive <page_id>
 
 ---
 
+## 📄 Page Content (read/write/edit)
+
+Read, write, and surgically edit page content as Markdown.
+
+```bash
+# Read page content as Markdown
+notion page read <page_id>
+notion page read <page_id> --json          # Raw block output
+notion page read <page_id> -o page.md      # Write to file
+
+# Write Markdown content into a page
+notion page write <page_id> -f content.md
+echo "# Hello" | notion page write <page_id>
+notion page write <page_id> -f doc.md --replace   # Replace all content (destructive)
+
+# Surgical block-level editing
+notion page edit <page_id> --at 3 --delete 2                    # Delete 2 blocks at index 3
+notion page edit <page_id> --at 5 --markdown "New paragraph"    # Insert at index 5
+notion page edit <page_id> --at 0 --delete 1 --file new.md      # Replace first block
+notion page edit <page_id> --dry-run --at 3 --delete 1          # Preview without changes
+```
+
+---
+
 ## 🤖 AI Agent Features
 
 ### Smart Queries with `find`
@@ -697,10 +721,10 @@ notion db query <db_id> \
 | Category | Commands |
 |----------|----------|
 | **Search** | `search` |
-| **Pages** | `page get`, `page create`, `page update`, `page archive` |
+| **Pages** | `page get`, `page create`, `page update`, `page archive`, `page read`, `page write`, `page edit`, `page property` |
 | **Databases** | `db get`, `db query`, `db create`, `db update` |
 | **Blocks** | `block get`, `block list`, `block append`, `block update`, `block delete` |
-| **Comments** | `comment list`, `comment get`, `comment create` |
+| **Comments** | `comment list`, `comment create`, `comment get` |
 | **Users** | `user me`, `user list`, `user get` |
 | **Export** | `export page`, `export db` |
 | **Import** | `import obsidian`, `import csv`, `import markdown` |
@@ -715,6 +739,7 @@ notion db query <db_id> \
 | **Relations** | `relations backlinks`, `relations link`, `relations unlink`, `relations graph` |
 | **Inspect** | `inspect workspace`, `inspect schema`, `inspect context` |
 | **Batch** | `batch` |
+| **Quickstart** | `quickstart` |
 | **API** | `api` |
 
 ---
@@ -772,7 +797,7 @@ Contributions are welcome! Please open an issue first to discuss what you would 
 
 ## 📄 License
 
-MIT © Balneario de Cofrentes
+MIT © [Balneario de Cofrentes](https://balneario.com) - The largest longevity clinic in the world.
 
 ---
 

@@ -67,6 +67,8 @@ notion find "high priority" -d <db_id> --explain           # preview filter, don
 notion page get <page_id>                       # properties
 notion page get <page_id> --content             # + content blocks
 notion page get <page_id> --json                # raw JSON
+notion page read <page_id>                      # content as Markdown
+notion page read <page_id> -o page.md           # save to file
 notion ai summarize <page_id>                   # concise summary
 notion ai extract <page_id> --schema "email,phone,date"
 ```
@@ -78,6 +80,10 @@ notion page create --parent <db_id> --title "Task" --prop "Status:status=Todo" -
 notion page update <page_id> --prop "Status:status=Done"
 notion page update <page_id> --clear-prop "Assignee"       # type-aware clear
 notion page update <page_id> --clear-prop "Tags" --clear-prop "Deadline"
+notion page write <page_id> -f content.md                  # write Markdown to page
+notion page write <page_id> -f doc.md --replace            # replace all content
+notion page edit <page_id> --at 3 --delete 2               # surgical block editing
+notion page edit <page_id> --at 5 --markdown "New text"    # insert at position
 ```
 
 ### Add blocks
