@@ -321,12 +321,12 @@ export function registerFindCommand(program: Command): void {
         }
 
         if (options.csv) {
-          console.log(formatResultsAsDelimited(result.results as Array<{ id: string; properties: Record<string, unknown> }>, ','));
+          console.log(formatResultsAsDelimited(result.results, ','));
           return;
         }
 
         if (options.tsv) {
-          console.log(formatResultsAsDelimited(result.results as Array<{ id: string; properties: Record<string, unknown> }>, '\t'));
+          console.log(formatResultsAsDelimited(result.results, '\t'));
           return;
         }
 

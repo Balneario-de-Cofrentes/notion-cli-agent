@@ -26,12 +26,16 @@ export function formatResultsAsDelimited(
 
   // Collect all property names in stable order (title first)
   const propNames: string[] = [];
+  const seen = new Set<string>();
   const titleProps = new Set<string>();
   for (const item of items) {
     for (const [key, val] of Object.entries(item.properties)) {
       const typed = val as { type: string };
       if (typed.type === 'title') titleProps.add(key);
-      if (!propNames.includes(key)) propNames.push(key);
+      if (!seen.has(key)) {
+        seen.add(key);
+        propNames.push(key);
+      }
     }
   }
   // Move title props to front
