@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-04-06
+
+### Added
+
+- **`--csv`** flag on `db query` and `find` — RFC 4180 CSV output with headers, proper escaping.
+- **`--tsv`** flag on `db query` and `find` — tab-separated output for spreadsheet pasting.
+- **`--ids-only`** flag on `db query`, `search`, and `find` — one ID per line for Unix piping.
+
 ## [0.11.1] - 2026-04-04
 
 ### Fixed
