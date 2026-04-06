@@ -65,7 +65,9 @@ function groupByTitle(pages: Page[], fuzzy: boolean): DedupGroup[] {
 
 // ─── Strategy: pick which page to keep ──────────────────────────────────────
 
-function pickKeeper(entries: DedupEntry[], strategy: string): DedupEntry {
+type DedupStrategy = 'keep-largest' | 'keep-newest' | 'keep-oldest';
+
+function pickKeeper(entries: DedupEntry[], strategy: DedupStrategy): DedupEntry {
   switch (strategy) {
     case 'keep-newest':
       return entries.reduce((best, e) =>
@@ -121,24 +123,24 @@ export function registerDedupCommand(program: Command): void {
       const totalDuplicates = groups.reduce((sum, g) => sum + g.entries.length - 1, 0);
 
       // For keep-largest strategy, fetch block counts for duplicate group members
-      if (options.fix && options.strategy === 'keep-largest') {
+      if (options.strategy === 'keep-largest') {
         for (const group of groups) {
           for (const entry of group.entries) {
             try {
-              const children = await client.get(`blocks/${entry.page.id}/children`, { page_size: 1 }) as { results: unknown[] };
+              const children = await client.get(`blocks/${entry.page.id}/children`, { page_size: 100 }) as { results: unknown[] };
               entry.blockCount = children.results.length;
-              // If has_more, it has more than 1 block — good enough for comparison
-              const full = children as { has_more?: boolean };
-              if (full.has_more) {
-                // Fetch actual count
-                const allChildren = await client.get(`blocks/${entry.page.id}/children`, { page_size: 100 }) as { results: unknown[] };
-                entry.blockCount = allChildren.results.length;
-              }
             } catch {
               entry.blockCount = 0;
             }
           }
         }
+      }
+
+      // Pre-compute keeper for each group (avoids redundant calls across output modes)
+      const strategy = options.strategy as DedupStrategy;
+      const keepers = new Map<DedupGroup, DedupEntry>();
+      for (const group of groups) {
+        keepers.set(group, pickKeeper(group.entries, strategy));
       }
 
       // JSON output
@@ -162,7 +164,7 @@ export function registerDedupCommand(program: Command): void {
       if (options.llm) {
         console.log(`${groups.length} duplicate groups, ${totalDuplicates} duplicates:\n`);
         for (const group of groups) {
-          const keeper = pickKeeper(group.entries, options.strategy);
+          const keeper = keepers.get(group)!;
           for (const entry of group.entries) {
             const mark = entry === keeper ? 'KEEP' : 'DUP';
             console.log(`[${mark}] ${entry.page.id} ${entry.title}`);
@@ -175,7 +177,7 @@ export function registerDedupCommand(program: Command): void {
       console.log(`Found ${totalDuplicates} duplicate(s) in ${groups.length} group(s):\n`);
 
       for (const group of groups) {
-        const keeper = pickKeeper(group.entries, options.strategy);
+        const keeper = keepers.get(group)!;
         console.log(`"${group.displayTitle}" (${group.entries.length} copies)`);
 
         for (const entry of group.entries) {
@@ -192,7 +194,7 @@ export function registerDedupCommand(program: Command): void {
       if (options.fix) {
         const toArchive: Page[] = [];
         for (const group of groups) {
-          const keeper = pickKeeper(group.entries, options.strategy);
+          const keeper = keepers.get(group)!;
           for (const entry of group.entries) {
             if (entry !== keeper) toArchive.push(entry.page);
           }

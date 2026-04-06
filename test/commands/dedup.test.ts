@@ -8,6 +8,7 @@ describe('Dedup Command', () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     mockClient = {
       get: vi.fn(),
       post: vi.fn(),
@@ -197,6 +198,36 @@ describe('Dedup Command', () => {
 
       // p1 is oldest, so p2 should be archived
       expect(mockClient.patch).toHaveBeenCalledWith('pages/p2', { in_trash: true });
+    });
+
+    it('should keep largest (most blocks) with default strategy', async () => {
+      const p1 = { ...createMockPage('p1', 'Dup'), last_edited_time: '2026-01-01T00:00:00Z' };
+      const p2 = { ...createMockPage('p2', 'Dup'), last_edited_time: '2026-03-01T00:00:00Z' };
+      setupPages([p1, p2]);
+
+      // p1 has 5 blocks, p2 has 2 blocks — p1 should be kept
+      mockClient.get
+        .mockResolvedValueOnce({ results: [{}, {}, {}, {}, {}] })   // p1: 5 blocks
+        .mockResolvedValueOnce({ results: [{}, {}] });              // p2: 2 blocks
+      mockClient.patch.mockResolvedValue({});
+
+      await program.parseAsync(['node', 'test', 'dedup', 'db-123', '--fix', '--yes']);
+
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/p2', { in_trash: true });
+      expect(mockClient.patch).not.toHaveBeenCalledWith('pages/p1', expect.anything());
+    });
+
+    it('should handle archival failures gracefully', async () => {
+      const p1 = { ...createMockPage('p1', 'Dup'), created_time: '2026-01-01T00:00:00Z', last_edited_time: '2026-03-01T00:00:00Z' };
+      const p2 = { ...createMockPage('p2', 'Dup'), created_time: '2026-02-01T00:00:00Z', last_edited_time: '2026-02-01T00:00:00Z' };
+      setupPages([p1, p2]);
+      mockClient.patch.mockRejectedValue(new Error('Permission denied'));
+
+      await program.parseAsync(['node', 'test', 'dedup', 'db-123', '--fix', '--strategy', 'keep-newest', '--yes']);
+
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to archive p2'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('0 duplicate(s)'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('1 failed'));
     });
   });
 
