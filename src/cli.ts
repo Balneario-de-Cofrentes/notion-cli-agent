@@ -43,6 +43,7 @@ import { registerValidateCommand } from './commands/validate.js';
 import { registerBackupCommand } from './commands/backup.js';
 import { registerRelationsCommand } from './commands/relations.js';
 import { registerHelpAgentCommand } from './commands/help-agent.js';
+import { registerDedupCommand } from './commands/dedup.js';
 
 const program = new Command();
 
@@ -83,6 +84,7 @@ registerAICommand(program);
 registerValidateCommand(program);
 registerBackupCommand(program);
 registerRelationsCommand(program);
+registerDedupCommand(program);
 registerHelpAgentCommand(program);
 
 // Raw API command for advanced users
