@@ -27,22 +27,31 @@ notion inspect context <db_id>       # Full context for working with a database
 
 ### 2. Search and query
 \`\`\`bash
-notion search "keyword"              # Search pages and databases
-notion db query <db_id> --limit 10   # Query database entries
-notion db query <db_id> --limit 10 --json
-notion find "overdue tasks" -d <db_id>  # Smart natural language query
+# Deterministic lookup in a known DB (preferred)
+notion db query <db_id> --title "Known Page" --json
+notion db query <db_id> --limit 20 --llm
+
+# Fuzzy search (workspace-wide, best-effort)
+notion search "keyword" --limit 10
+notion search "keyword" --db <db_id> --llm           # filter by parent DB
+notion search "short title" --exact --first --json    # exact match, one result
+
+# Natural language
+notion find "overdue tasks unassigned" -d <db_id> --llm
+notion find "high priority" -d <db_id> --explain      # preview filter
 \`\`\`
 
 ### 3. Create entries
 \`\`\`bash
 notion page create --parent <db_id> --title "New Entry"
-notion page create --parent <db_id> --title "Task" --prop "Status=Todo" --prop "Priority=High"
+notion page create --parent <db_id> --title "Task" --prop "Status:status=Todo" --prop "Priority:select=High"
 \`\`\`
 
 ### 4. Update entries
 \`\`\`bash
-notion page update <page_id> --prop "Status=Done"
-notion bulk update <db_id> --where "Status=Todo" --set "Status=In Progress" --yes
+notion page update <page_id> --prop "Status:status=Done"
+notion page update <page_id> --clear-prop "Assignee"     # type-aware clear
+notion bulk update <db_id> --where "Status=Todo" --set "Status=In Progress" --dry-run
 \`\`\`
 
 ### 5. Read page content
@@ -50,24 +59,54 @@ notion bulk update <db_id> --where "Status=Todo" --set "Status=In Progress" --ye
 notion page get <page_id>            # Get page properties
 notion page get <page_id> --content  # Include content blocks
 notion page get <page_id> --json     # Raw JSON
+notion page read <page_id>           # Content as Markdown
+notion page read <page_id> -o page.md
 notion ai summarize <page_id>        # Get concise summary
 \`\`\`
 
-### 6. Add content to pages
+### 6. Write page content
+\`\`\`bash
+notion page write <page_id> -f content.md             # Append Markdown
+notion page write <page_id> -f doc.md --replace        # Replace all content
+notion page edit <page_id> --at 3 --delete 2           # Surgical block editing
+notion page edit <page_id> --at 5 --markdown "New text"
+\`\`\`
+
+### 7. Add blocks
 \`\`\`bash
 notion block append <page_id> --text "Hello world"
 notion block append <page_id> --heading2 "Section" --bullet "Item 1" --bullet "Item 2"
 notion block append <page_id> --todo "Task to do"
 \`\`\`
 
+### 8. Dedup and maintenance
+\`\`\`bash
+notion dedup <db_id>                                   # Find duplicates
+notion dedup <db_id> --fuzzy                           # Include near-duplicates
+notion dedup <db_id> --fix --strategy keep-largest --yes
+notion validate check <db_id> --check-dates --check-stale 30
+notion stats overview <db_id>
+\`\`\`
+
+## Property Type Hints
+
+Use \`Key:type=Value\` to force a type (avoids status/select ambiguity):
+\`\`\`bash
+notion page update <id> --prop "Status:status=Done"
+notion page update <id> --prop "Notes:rich_text=Text"
+notion page update <id> --prop "Owner:people=<user_id>"
+\`\`\`
+
 ## Property Types for Filters
 
 When filtering, specify --filter-prop-type for non-text properties:
 - status: --filter-prop-type status
-- select: --filter-prop-type select  
+- select: --filter-prop-type select
 - number: --filter-prop-type number
 - date: --filter-prop-type date
 - checkbox: --filter-prop-type checkbox
+- people: --filter-prop-type people
+- relation: --filter-prop-type relation
 
 Example:
 \`\`\`bash
@@ -91,21 +130,29 @@ notion batch --llm --data '[
   {"op":"create","type":"page","parent":"db_id","data":{...}},
   {"op":"update","type":"page","id":"yyy","data":{...}}
 ]'
+notion batch --dry-run --data '[...]'  # Preview first
 \`\`\`
 
 ## Output Formats
 
-- Default: Human-readable
-- --json or -j: Raw JSON (for parsing)
-- --llm: Supported on selected commands such as find, batch, and inspect schema
+| Flag | Use for |
+|------|---------|
+| (default) | Human-readable |
+| --json / -j | Raw JSON for parsing |
+| --llm | Compact structured output (search, db query, find, batch, inspect, stats) |
+| --csv | CSV with headers (db query, find) |
+| --tsv | Tab-separated (db query, find) |
+| --ids-only | One ID per line for piping (db query, search, find) |
 
 ## Tips for AI Agents
 
 1. Always run \`notion inspect context <db_id>\` first to understand database structure
-2. Property names and values must match EXACTLY (case-sensitive)
-3. Use --dry-run on bulk/batch operations before executing
-4. Status properties use "status" type, not "select"
-5. The title property name varies per database (could be "Name", "Título", "Task", etc.)
+2. For exact lookup by title, use \`db query --title\` — not \`search --exact\`
+3. Property names are resolved case-insensitively since v0.10.0, but prefer exact schema labels
+4. Use \`--clear-prop\` instead of fake empty values like \`Owner:people=\`
+5. Use --dry-run on bulk/batch operations before executing
+6. Status properties use "status" type, not "select" — use type hints to disambiguate
+7. The title property name varies per database (could be "Name", "Título", "Task", etc.)
 
 ## Get Help
 

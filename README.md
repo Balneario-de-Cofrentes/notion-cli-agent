@@ -763,6 +763,31 @@ notion db query <db_id> \
 
 ---
 
+## 🔌 MCP Server Mode
+
+Run as an MCP tool server for agent frameworks (Claude Code, Cursor, VS Code):
+
+```bash
+notion --mcp
+```
+
+Configure in Claude Code (`settings.json`):
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "notion",
+      "args": ["--mcp"],
+      "env": { "NOTION_TOKEN": "ntn_your_token" }
+    }
+  }
+}
+```
+
+Exposes 14 tools: `search`, `page_get`, `page_create`, `page_update`, `db_query`, `db_schema`, `block_children`, `block_append`, `find`, `batch`, `inspect_workspace`, `comment_create`, `validate_health`, `dedup`.
+
+---
+
 ## 🎯 Command Reference
 
 | Category | Commands |

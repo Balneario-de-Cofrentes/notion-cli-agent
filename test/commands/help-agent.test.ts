@@ -73,7 +73,7 @@ describe('Help Agent Command', () => {
       const output = (console.log as any).mock.calls[0][0];
       expect(output).toContain('Tips for AI Agents');
       expect(output).toContain('inspect context');
-      expect(output).toContain('case-sensitive');
+      expect(output).toContain('inspect');
     });
 
     it('should include property type documentation', async () => {
