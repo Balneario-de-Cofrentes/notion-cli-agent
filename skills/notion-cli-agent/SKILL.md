@@ -108,6 +108,9 @@ notion batch --llm --data '[...]'               # execute
 notion bulk update <db_id> --where "Status=Todo" --set "Status=In Progress" --dry-run
 notion stats overview <db_id>
 notion validate check <db_id> --check-dates --check-stale 30
+notion dedup <db_id>                                       # find duplicate pages
+notion dedup <db_id> --fuzzy                               # include near-duplicates
+notion dedup <db_id> --fix --strategy keep-largest --yes   # archive duplicates
 ```
 
 ## Output flags

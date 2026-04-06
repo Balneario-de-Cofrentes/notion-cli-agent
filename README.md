@@ -541,6 +541,28 @@ backups/
 
 ---
 
+## 🧹 Dedup — Find & Clean Duplicates
+
+```bash
+# Find duplicate pages by title
+notion dedup <db_id>
+
+# Include near-duplicates (strips copy/draft suffixes)
+notion dedup <db_id> --fuzzy
+
+# Archive duplicates, keep the page with most content
+notion dedup <db_id> --fix --strategy keep-largest --yes
+
+# Keep newest or oldest
+notion dedup <db_id> --fix --strategy keep-newest --yes
+notion dedup <db_id> --fix --strategy keep-oldest --yes
+
+# Preview first (default when --fix without --yes)
+notion dedup <db_id> --fix --strategy keep-largest
+```
+
+---
+
 ## 🔗 Relations & Backlinks
 
 ### Find Backlinks
@@ -763,6 +785,7 @@ notion db query <db_id> \
 | **Duplicate** | `duplicate page`, `duplicate schema`, `duplicate db` |
 | **Relations** | `relations backlinks`, `relations link`, `relations unlink`, `relations graph` |
 | **Inspect** | `inspect workspace`, `inspect schema`, `inspect context` |
+| **Dedup** | `dedup` |
 | **Batch** | `batch` |
 | **Quickstart** | `quickstart` |
 | **API** | `api` |
