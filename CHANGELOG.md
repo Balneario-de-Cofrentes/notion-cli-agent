@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`notion --mcp`** — MCP server mode over stdio. Exposes 14 tools (search, page CRUD, db query, blocks, find, batch, inspect, validate, dedup, comments) as MCP tools for agent frameworks like Claude Code, Cursor, and VS Code. Uses [`mcp-stdio`](https://github.com/Balneario-de-Cofrentes/mcp-stdio) (zero-dep). (#34)
+
 ## [0.13.0] - 2026-04-06
 
 ### Added

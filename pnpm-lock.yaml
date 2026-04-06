@@ -20,6 +20,9 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      mcp-stdio:
+        specifier: ^0.1.0
+        version: 0.1.0
     devDependencies:
       '@types/node':
         specifier: ^22.19.15
@@ -662,6 +665,10 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  mcp-stdio@0.1.0:
+    resolution: {integrity: sha512-C2YTDl0OOO1iAteghyRv66SNhzARb+/pRwdJXhIXxijhbqojreo6SddQPNkkeeQBbbinknTWHUv2edQrWWrfYg==}
+    engines: {node: '>=20'}
 
   minimatch@10.2.4:
     resolution: {integrity: sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg==}
@@ -1404,6 +1411,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  mcp-stdio@0.1.0: {}
 
   minimatch@10.2.4:
     dependencies:

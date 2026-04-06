@@ -50,7 +50,8 @@
   },
   "dependencies": {
     "chalk": "^5.3.0",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "mcp-stdio": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.15",
