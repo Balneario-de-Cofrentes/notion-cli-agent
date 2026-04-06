@@ -125,9 +125,9 @@ program
     }
   });
 
-// MCP server mode — bypass CLI, start as MCP tool server
+// MCP server mode — bypass CLI, start as MCP tool server.
+// ensureClient() inside startMcpServer() handles client initialization.
 if (process.argv.includes('--mcp')) {
-  initClient();
   import('./mcp.js').then(m => m.startMcpServer());
 } else {
   program.parse();

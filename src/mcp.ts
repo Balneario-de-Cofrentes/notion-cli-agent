@@ -1,5 +1,5 @@
 /**
- * MCP server mode — exposes notion-cli-agent as an MCP tool server over stdio.
+ * MCP server mode -- exposes notion-cli-agent as an MCP tool server over stdio.
  *
  * Usage: notion --mcp
  *
@@ -7,13 +7,49 @@
  * Each tool returns JSON results directly (no console.log formatting).
  */
 
+import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import { createMcpServer } from 'mcp-stdio';
 import { initClient, getClient } from './client.js';
-import { setGlobalDataSourceId } from './utils/database-resolver.js';
-import { getDatabaseSchema, queryDatabase, queryAllPages, updateDatabase } from './utils/database-resolver.js';
-import { getPageTitle, getDbTitle, fetchAllBlocks, buildTrashPayload, resolvePropertyName, buildClearPayload } from './utils/notion-helpers.js';
-import { parseProperties, parseFilter, formatResultsAsDelimited } from './utils/format.js';
+import { getDatabaseSchema, queryDatabase } from './utils/database-resolver.js';
+import { getPageTitle, getDbTitle, fetchAllBlocks, buildTrashPayload } from './utils/notion-helpers.js';
 import type { Page, PaginatedResponse, Database } from './types/notion.js';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
+
+/**
+ * Notion IDs are UUIDs (with or without dashes). Reject anything else
+ * to prevent argument injection when passing IDs to subprocess argv.
+ */
+const NOTION_ID_RE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+
+function assertNotionId(value: unknown, label: string): string {
+  const id = String(value);
+  if (!NOTION_ID_RE.test(id)) {
+    throw new Error(`Invalid ${label}: expected a Notion UUID, got "${id}"`);
+  }
+  return id;
+}
+
+/**
+ * Run a CLI subcommand in a child process using execFileSync (no shell).
+ * Returns stdout as a string. On failure, returns a JSON error string
+ * so the MCP caller always gets parseable output.
+ */
+function runSubcommand(args: string[], timeoutMs = 60_000): string {
+  try {
+    return execFileSync(process.execPath, [process.argv[1], ...args], {
+      env: process.env,
+      encoding: 'utf-8',
+      timeout: timeoutMs,
+    });
+  } catch (error) {
+    const msg = (error as Error).message || 'Subcommand failed';
+    // Return structured JSON so MCP consumers can parse the error
+    return JSON.stringify({ error: msg });
+  }
+}
 
 function ensureClient(): void {
   try {
@@ -29,10 +65,10 @@ export async function startMcpServer(): Promise<void> {
 
   await createMcpServer({
     name: 'notion-cli-agent',
-    version: '0.13.0',
+    version,
     tools: {
 
-      // ─── Search ─────────────────────────────────────────────────────
+      // --- Search -------------------------------------------------------
 
       search: {
         description: 'Search pages and databases across the workspace',
@@ -62,7 +98,7 @@ export async function startMcpServer(): Promise<void> {
         },
       },
 
-      // ─── Pages ──────────────────────────────────────────────────────
+      // --- Pages --------------------------------------------------------
 
       page_get: {
         description: 'Get a page by ID with properties and optional content',
@@ -133,7 +169,7 @@ export async function startMcpServer(): Promise<void> {
         },
       },
 
-      // ─── Databases ──────────────────────────────────────────────────
+      // --- Databases ----------------------------------------------------
 
       db_query: {
         description: 'Query a database with optional filter and sort',
@@ -182,7 +218,7 @@ export async function startMcpServer(): Promise<void> {
         },
       },
 
-      // ─── Blocks ─────────────────────────────────────────────────────
+      // --- Blocks -------------------------------------------------------
 
       block_children: {
         description: 'Get all child blocks of a page or block',
@@ -217,7 +253,7 @@ export async function startMcpServer(): Promise<void> {
         },
       },
 
-      // ─── Find ───────────────────────────────────────────────────────
+      // --- Find ---------------------------------------------------------
 
       find: {
         description: 'Natural language query against a database (e.g., "overdue tasks unassigned")',
@@ -231,17 +267,16 @@ export async function startMcpServer(): Promise<void> {
           required: ['query', 'database_id'],
         },
         handler: async (params) => {
-          // Dynamically import find logic to avoid circular deps
-          const { execSync } = await import('child_process');
-          const result = execSync(
-            `node ${process.argv[1]} find ${JSON.stringify(params.query)} -d ${params.database_id} --json --limit ${params.limit || 20}`,
-            { env: process.env, encoding: 'utf-8', timeout: 30000 },
+          const dbId = assertNotionId(params.database_id, 'database_id');
+          const limit = String(Number(params.limit) || 20);
+          return runSubcommand(
+            ['find', String(params.query), '-d', dbId, '--json', '--limit', limit],
+            30_000,
           );
-          return result;
         },
       },
 
-      // ─── Batch ──────────────────────────────────────────────────────
+      // --- Batch --------------------------------------------------------
 
       batch: {
         description: 'Execute multiple operations in one call. Operations: get, create, update, delete, query, append.',
@@ -256,16 +291,13 @@ export async function startMcpServer(): Promise<void> {
           required: ['operations'],
         },
         handler: async (params) => {
-          const { execSync } = await import('child_process');
-          const result = execSync(
-            `node ${process.argv[1]} batch --json --data ${JSON.stringify(JSON.stringify(params.operations))}`,
-            { env: process.env, encoding: 'utf-8', timeout: 60000 },
+          return runSubcommand(
+            ['batch', '--json', '--data', JSON.stringify(params.operations)],
           );
-          return result;
         },
       },
 
-      // ─── Workspace ──────────────────────────────────────────────────
+      // --- Workspace ----------------------------------------------------
 
       inspect_workspace: {
         description: 'List all accessible databases in the workspace',
@@ -288,7 +320,7 @@ export async function startMcpServer(): Promise<void> {
         },
       },
 
-      // ─── Comments ───────────────────────────────────────────────────
+      // --- Comments -----------------------------------------------------
 
       comment_create: {
         description: 'Create a comment on a page',
@@ -309,7 +341,7 @@ export async function startMcpServer(): Promise<void> {
         },
       },
 
-      // ─── Validate ───────────────────────────────────────────────────
+      // --- Validate -----------------------------------------------------
 
       validate_health: {
         description: 'Get health score and fill rates for a database',
@@ -321,16 +353,12 @@ export async function startMcpServer(): Promise<void> {
           required: ['database_id'],
         },
         handler: async (params) => {
-          const { execSync } = await import('child_process');
-          const result = execSync(
-            `node ${process.argv[1]} validate health ${params.database_id}`,
-            { env: process.env, encoding: 'utf-8', timeout: 60000 },
-          );
-          return result;
+          const dbId = assertNotionId(params.database_id, 'database_id');
+          return runSubcommand(['validate', 'health', dbId]);
         },
       },
 
-      // ─── Dedup ──────────────────────────────────────────────────────
+      // --- Dedup --------------------------------------------------------
 
       dedup: {
         description: 'Find duplicate pages in a database',
@@ -343,13 +371,10 @@ export async function startMcpServer(): Promise<void> {
           required: ['database_id'],
         },
         handler: async (params) => {
-          const { execSync } = await import('child_process');
-          const flags = params.fuzzy ? '--fuzzy' : '';
-          const result = execSync(
-            `node ${process.argv[1]} dedup ${params.database_id} --json ${flags}`,
-            { env: process.env, encoding: 'utf-8', timeout: 60000 },
-          );
-          return result;
+          const dbId = assertNotionId(params.database_id, 'database_id');
+          const args = ['dedup', dbId, '--json'];
+          if (params.fuzzy) args.push('--fuzzy');
+          return runSubcommand(args);
         },
       },
     },
