@@ -116,6 +116,9 @@ notion validate check <db_id> --check-dates --check-stale 30
 |------|---------|
 | `--llm` | Compact, structured output for agents (`search`, `db query`, `find`, `batch`, `inspect schema/context`, `stats overview`, `relations backlinks`) |
 | `--json` / `-j` | Raw JSON for parsing |
+| `--csv` | CSV with headers (`db query`, `find`) |
+| `--tsv` | Tab-separated (`db query`, `find`) |
+| `--ids-only` | One ID per line for piping (`db query`, `search`, `find`) |
 | (default) | Human-readable |
 
 ## Property type filters

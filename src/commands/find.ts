@@ -4,7 +4,7 @@
  */
 import { Command } from 'commander';
 import { getClient } from '../client.js';
-import { formatOutput } from '../utils/format.js';
+import { formatOutput, formatResultsAsDelimited } from '../utils/format.js';
 import { getPageTitle } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
@@ -186,6 +186,9 @@ export function registerFindCommand(program: Command): void {
     .option('--explain', 'Show the generated filter without executing')
     .option('-j, --json', 'Output raw JSON')
     .option('--llm', 'LLM-friendly output')
+    .option('--csv', 'Output as CSV')
+    .option('--tsv', 'Output as TSV (tab-separated)')
+    .option('--ids-only', 'Output only page IDs, one per line')
     .action(withErrorHandler(async (query: string, options) => {
       const client = getClient();
         
@@ -316,7 +319,24 @@ export function registerFindCommand(program: Command): void {
           console.log(formatOutput(result));
           return;
         }
-        
+
+        if (options.csv) {
+          console.log(formatResultsAsDelimited(result.results, ','));
+          return;
+        }
+
+        if (options.tsv) {
+          console.log(formatResultsAsDelimited(result.results, '\t'));
+          return;
+        }
+
+        if (options.idsOnly) {
+          for (const page of result.results) {
+            console.log(page.id);
+          }
+          return;
+        }
+
         if (options.llm) {
           console.log(`## Found ${result.results.length} results for: "${query}"\n`);
           if (filter) {

@@ -330,6 +330,29 @@ describe('Search Command', () => {
     });
   });
 
+  describe('--ids-only flag', () => {
+    it('should output only IDs one per line', async () => {
+      const result = createPaginatedResult([
+        createMockPage('page-1', 'Task One'),
+        createMockPage('page-2', 'Task Two'),
+      ]);
+      mockClient.post.mockResolvedValue(result);
+
+      await program.parseAsync(['node', 'test', 'search', 'task', '--ids-only']);
+
+      expect(console.log).toHaveBeenCalledWith('page-1');
+      expect(console.log).toHaveBeenCalledWith('page-2');
+    });
+
+    it('should output nothing for empty results', async () => {
+      mockClient.post.mockResolvedValue(createPaginatedResult([]));
+
+      await program.parseAsync(['node', 'test', 'search', 'nothing', '--ids-only']);
+
+      expect(console.log).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Combined options', () => {
     it('should handle multiple options together', async () => {
       mockClient.post.mockResolvedValue(mockSearchResult);

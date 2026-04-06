@@ -6,6 +6,7 @@ import {
   formatBlock,
   parseProperties,
   parseFilter,
+  formatResultsAsDelimited,
 } from '../../src/utils/format';
 
 describe('Format Utilities', () => {
@@ -823,6 +824,75 @@ describe('Format Utilities', () => {
         const filter = parseFilter('Date', 'on_or_before', '2024-12-31', 'date');
         expect(filter.date).toEqual({ on_or_before: '2024-12-31' });
       });
+    });
+  });
+
+  describe('formatResultsAsDelimited()', () => {
+    const items = [
+      {
+        id: 'page-1',
+        properties: {
+          Name: { type: 'title', title: [{ plain_text: 'Task One' }] },
+          Status: { type: 'status', status: { name: 'Done' } },
+          Tags: { type: 'multi_select', multi_select: [{ name: 'bug' }, { name: 'urgent' }] },
+        },
+      },
+      {
+        id: 'page-2',
+        properties: {
+          Name: { type: 'title', title: [{ plain_text: 'Task Two' }] },
+          Status: { type: 'status', status: { name: 'Todo' } },
+          Tags: { type: 'multi_select', multi_select: [] },
+        },
+      },
+    ];
+
+    it('should output CSV with headers', () => {
+      const csv = formatResultsAsDelimited(items as any, ',');
+      const lines = csv.split('\n');
+      expect(lines[0]).toBe('id,Name,Status,Tags');
+      expect(lines[1]).toBe('page-1,Task One,Done,"bug, urgent"');
+      expect(lines[2]).toBe('page-2,Task Two,Todo,');
+    });
+
+    it('should output TSV with headers', () => {
+      const tsv = formatResultsAsDelimited(items as any, '\t');
+      const lines = tsv.split('\n');
+      expect(lines[0]).toBe('id\tName\tStatus\tTags');
+      expect(lines[1]).toBe('page-1\tTask One\tDone\tbug, urgent');
+    });
+
+    it('should return empty string for empty array', () => {
+      expect(formatResultsAsDelimited([], ',')).toBe('');
+    });
+
+    it('should put title properties first', () => {
+      const csv = formatResultsAsDelimited(items as any, ',');
+      const header = csv.split('\n')[0];
+      // Name (title type) should come right after id
+      expect(header.startsWith('id,Name')).toBe(true);
+    });
+
+    it('should escape CSV values with commas', () => {
+      const itemsWithComma = [{
+        id: 'p-1',
+        properties: {
+          Name: { type: 'title', title: [{ plain_text: 'One, Two' }] },
+        },
+      }];
+      const csv = formatResultsAsDelimited(itemsWithComma as any, ',');
+      expect(csv).toContain('"One, Two"');
+    });
+
+    it('should escape CSV values with quotes', () => {
+      const itemsWithQuote = [{
+        id: 'p-1',
+        properties: {
+          Name: { type: 'title', title: [{ plain_text: 'Say "hello"' }] },
+        },
+      }];
+      const csv = formatResultsAsDelimited(itemsWithQuote as any, ',');
+      expect(csv).toContain('"Say ""hello"""');
     });
   });
 });

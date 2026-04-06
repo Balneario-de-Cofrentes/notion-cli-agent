@@ -350,6 +350,40 @@ describe('Find Command', () => {
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('1. **'));
     });
 
+    it('should output CSV with --csv', async () => {
+      setupDatabaseResolution(mockClient);
+      mockClient.post.mockResolvedValue(createPaginatedResult([createMockPage('1', 'Task')]));
+
+      await program.parseAsync(['node', 'test', 'find', 'done', '--database', 'db-123', '--csv']);
+
+      const output = (console.log as any).mock.calls[0][0];
+      expect(output).toContain('id');
+      expect(output).toContain('1');
+    });
+
+    it('should output TSV with --tsv', async () => {
+      setupDatabaseResolution(mockClient);
+      mockClient.post.mockResolvedValue(createPaginatedResult([createMockPage('1', 'Task')]));
+
+      await program.parseAsync(['node', 'test', 'find', 'done', '--database', 'db-123', '--tsv']);
+
+      const output = (console.log as any).mock.calls[0][0];
+      expect(output).toContain('\t');
+    });
+
+    it('should output only IDs with --ids-only', async () => {
+      setupDatabaseResolution(mockClient);
+      mockClient.post.mockResolvedValue(createPaginatedResult([
+        createMockPage('page-1', 'Task One'),
+        createMockPage('page-2', 'Task Two'),
+      ]));
+
+      await program.parseAsync(['node', 'test', 'find', 'done', '--database', 'db-123', '--ids-only']);
+
+      expect(console.log).toHaveBeenCalledWith('page-1');
+      expect(console.log).toHaveBeenCalledWith('page-2');
+    });
+
     it('should show standard output by default', async () => {
       setupDatabaseResolution(mockClient);
       mockClient.post.mockResolvedValue(createPaginatedResult([createMockPage('1', 'Task')]));

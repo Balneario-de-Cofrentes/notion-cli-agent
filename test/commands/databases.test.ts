@@ -412,6 +412,48 @@ describe('Databases Command', () => {
     });
   });
 
+  describe('--csv flag on query', () => {
+    it('should output CSV with headers and values', async () => {
+      setupDatabaseResolution(mockClient);
+      mockClient.post.mockResolvedValue(createPaginatedResult([mockPage]));
+
+      await program.parseAsync(['node', 'test', 'database', 'query', 'db-123', '--csv']);
+
+      const output = (console.log as any).mock.calls[0][0];
+      const lines = output.split('\n');
+      expect(lines[0]).toContain('id');
+      expect(lines[0]).toContain('Name');
+      expect(lines[1]).toContain('page-123');
+      expect(lines[1]).toContain('Test Page');
+    });
+  });
+
+  describe('--tsv flag on query', () => {
+    it('should output TSV with tab separators', async () => {
+      setupDatabaseResolution(mockClient);
+      mockClient.post.mockResolvedValue(createPaginatedResult([mockPage]));
+
+      await program.parseAsync(['node', 'test', 'database', 'query', 'db-123', '--tsv']);
+
+      const output = (console.log as any).mock.calls[0][0];
+      expect(output).toContain('\t');
+      expect(output).toContain('page-123');
+    });
+  });
+
+  describe('--ids-only flag on query', () => {
+    it('should output only IDs one per line', async () => {
+      setupDatabaseResolution(mockClient);
+      const page2 = { ...mockPage, id: 'page-456', properties: mockPage.properties };
+      mockClient.post.mockResolvedValue(createPaginatedResult([mockPage, page2]));
+
+      await program.parseAsync(['node', 'test', 'database', 'query', 'db-123', '--ids-only']);
+
+      expect(console.log).toHaveBeenCalledWith('page-123');
+      expect(console.log).toHaveBeenCalledWith('page-456');
+    });
+  });
+
   describe('Error handling', () => {
     it('should handle get errors', async () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));

@@ -1,9 +1,64 @@
 /**
  * Formatting utilities for CLI output
  */
+import { getPropertyValue } from './notion-helpers.js';
 
 export function formatOutput(data: unknown): string {
   return JSON.stringify(data, null, 2);
+}
+
+function escapeCSV(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function escapeTSV(value: string): string {
+  return value.replace(/\t/g, '\\t').replace(/\n/g, '\\n');
+}
+
+export function formatResultsAsDelimited(
+  items: Array<{ id: string; properties: Record<string, unknown> }>,
+  separator: ',' | '\t',
+): string {
+  if (items.length === 0) return '';
+
+  // Collect all property names in stable order (title first)
+  const propNames: string[] = [];
+  const seen = new Set<string>();
+  const titleProps = new Set<string>();
+  for (const item of items) {
+    for (const [key, val] of Object.entries(item.properties)) {
+      const typed = val as { type: string };
+      if (typed.type === 'title') titleProps.add(key);
+      if (!seen.has(key)) {
+        seen.add(key);
+        propNames.push(key);
+      }
+    }
+  }
+  // Move title props to front
+  propNames.sort((a, b) => {
+    const aTitle = titleProps.has(a) ? 0 : 1;
+    const bTitle = titleProps.has(b) ? 0 : 1;
+    return aTitle - bTitle;
+  });
+
+  const headers = ['id', ...propNames];
+  const escape = separator === ',' ? escapeCSV : escapeTSV;
+  const lines: string[] = [headers.map(h => escape(h)).join(separator)];
+
+  for (const item of items) {
+    const row = [item.id, ...propNames.map(name => {
+      const prop = item.properties[name] as Record<string, unknown> | undefined;
+      if (!prop) return '';
+      return getPropertyValue(prop) || '';
+    })];
+    lines.push(row.map(v => escape(v)).join(separator));
+  }
+
+  return lines.join('\n');
 }
 
 export function formatPageTitle(page: unknown): string {

@@ -182,6 +182,31 @@ notion page update <page_id> --clear-prop "Assignee"  # Type-aware clear
 notion page archive <page_id>
 ```
 
+### Output Formats
+
+```bash
+# Export database as CSV
+notion db query <db_id> --csv > tasks.csv
+
+# Tab-separated (paste into spreadsheets)
+notion db query <db_id> --tsv | pbcopy
+
+# Just IDs for piping into other commands
+notion db query <db_id> --filter "Status=Done" --ids-only | \
+  xargs -I {} notion page archive {}
+
+# Count search results
+notion search "bugs" --ids-only | wc -l
+```
+
+| Flag | Commands | Description |
+|------|----------|-------------|
+| `--json` / `-j` | all | Raw JSON |
+| `--llm` | most | Compact agent-friendly output |
+| `--csv` | `db query`, `find` | CSV with headers |
+| `--tsv` | `db query`, `find` | Tab-separated |
+| `--ids-only` | `db query`, `search`, `find` | One ID per line |
+
 ---
 
 ## 📄 Page Content (read/write/edit)

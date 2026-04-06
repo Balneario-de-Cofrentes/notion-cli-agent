@@ -41,6 +41,7 @@ export function registerSearchCommand(program: Command): void {
     .option('--first', 'Return only the first result (exit 1 if none)')
     .option('--llm', 'Compact LLM-friendly output')
     .option('-j, --json', 'Output raw JSON')
+    .option('--ids-only', 'Output only IDs, one per line')
     .action(withErrorHandler(async (query: string | undefined, options) => {
       const client = getClient();
 
@@ -114,6 +115,13 @@ export function registerSearchCommand(program: Command): void {
 
       if (options.json) {
         console.log(formatOutput(options.first ? items[0] : { results: items, has_more: lastHasMore, next_cursor: lastCursor }));
+        return;
+      }
+
+      if (options.idsOnly) {
+        for (const item of items) {
+          console.log(item.id);
+        }
         return;
       }
 

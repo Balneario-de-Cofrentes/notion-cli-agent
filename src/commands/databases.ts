@@ -3,7 +3,7 @@
  */
 import { Command } from 'commander';
 import { getClient } from '../client.js';
-import { formatOutput, formatDatabaseTitle, parseFilter } from '../utils/format.js';
+import { formatOutput, formatDatabaseTitle, parseFilter, formatResultsAsDelimited } from '../utils/format.js';
 import { getDatabaseSchema, queryDatabase, updateDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import { getPageTitle } from '../utils/notion-helpers.js';
@@ -53,6 +53,9 @@ export function registerDatabasesCommand(program: Command): void {
     .option('--cursor <cursor>', 'Pagination cursor')
     .option('--llm', 'Compact LLM-friendly output')
     .option('-j, --json', 'Output raw JSON')
+    .option('--csv', 'Output as CSV')
+    .option('--tsv', 'Output as TSV (tab-separated)')
+    .option('--ids-only', 'Output only page IDs, one per line')
     .action(withErrorHandler(async (databaseId: string, options) => {
       const client = getClient();
 
@@ -111,6 +114,23 @@ export function registerDatabasesCommand(program: Command): void {
 
       if (options.json) {
         console.log(formatOutput(result));
+        return;
+      }
+
+      if (options.csv) {
+        console.log(formatResultsAsDelimited(result.results, ','));
+        return;
+      }
+
+      if (options.tsv) {
+        console.log(formatResultsAsDelimited(result.results, '\t'));
+        return;
+      }
+
+      if (options.idsOnly) {
+        for (const item of result.results) {
+          console.log(item.id);
+        }
         return;
       }
 
