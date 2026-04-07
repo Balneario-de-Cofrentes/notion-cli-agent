@@ -8,6 +8,7 @@ import { formatOutput } from '../utils/format.js';
 import { getDbTitle, getDbDescription } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
@@ -163,6 +164,7 @@ export function registerInspectCommand(program: Command): void {
     .option('-j, --json', 'Output raw JSON')
     .option('--llm', 'Output optimized for LLM consumption')
     .action(withErrorHandler(async (databaseId: string, options) => {
+      databaseId = resolveDatabaseInput(databaseId);
       const client = getClient();
       const db = await getDatabaseSchema(client, databaseId);
 
@@ -272,8 +274,9 @@ export function registerInspectCommand(program: Command): void {
     .description('Generate LLM-friendly context for a database')
     .option('--examples <number>', 'Number of example entries to include', '3')
     .action(withErrorHandler(async (databaseId: string, options) => {
+      databaseId = resolveDatabaseInput(databaseId);
       const client = getClient();
-        
+
         // Get database schema
         const db = await getDatabaseSchema(client, databaseId);
         const title = getDbTitle(db);

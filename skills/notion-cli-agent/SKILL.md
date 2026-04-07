@@ -15,40 +15,47 @@ notion <args>   # globally installed via npm
 
 Auth: `NOTION_TOKEN` env var, or `~/.config/notion/api_key`.
 
-## Load workspace state first
-
-If `~/.config/notion/workspace.json` exists, read it to get database IDs — no need to run `inspect` every time:
+## Workspace sync (do this first)
 
 ```bash
-cat ~/.config/notion/workspace.json 2>/dev/null
-# extract: .databases.tasks.id, .databases.projects.id, etc.
+notion sync                  # cache all databases locally
+notion list                  # show cached databases
+notion list --json           # for parsing
 ```
 
-If the file is missing, suggest the user run the **notion-onboarding** skill first.
+After sync, use database names instead of UUIDs in ALL commands:
+```bash
+notion db query "Tasks" --limit 5 --llm
+notion find "Tasks" "overdue" --llm
+notion stats overview "Projects"
+```
+
+If `~/.config/notion/workspace.json` exists (from `sync` or the **notion-onboarding** skill), names resolve automatically. Falls back to UUIDs if no cache.
 
 ## Agent Workflow
 
-1. **Load state** (above) or `notion inspect ws --compact` / `notion inspect ws --json` to discover databases
-2. **Understand schema** — `notion inspect context <db_id>` and `notion inspect schema <db_id> --llm`
-3. **Query deterministically first** — prefer `search --exact --db --first`, `db query --title`, or `--llm` over fuzzy workspace-wide search when you know the target DB
+1. **Sync workspace** — `notion sync` (once per session, or `notion list` if already synced)
+2. **Understand schema** — `notion inspect context "Tasks"` or `notion inspect schema "Tasks" --llm`
+3. **Query deterministically first** — prefer `db query --title`, `search --exact --db --first`, or `--llm` over fuzzy workspace-wide search when you know the target DB
 4. **Write** with `--dry-run` first on bulk/batch ops, then confirm with user
 
 ## Core Commands
 
 ### Discover
 ```bash
+notion sync                                     # cache databases for name lookup
+notion list                                     # show cached databases
 notion inspect ws --compact                     # all databases, names + ids
-notion inspect ws --json                        # full raw inventory
-notion inspect schema <db_id> --llm             # property types + valid values
-notion inspect context <db_id>                  # workflow context + examples
-notion ai prompt <db_id>                        # DB-specific agent instructions
+notion inspect schema "Tasks" --llm             # property types + valid values
+notion inspect context "Tasks"                  # workflow context + examples
+notion ai prompt "Tasks"                        # DB-specific agent instructions
 ```
 
 ### Query
 ```bash
 # Exact lookup in a known DB (deterministic — uses database query API)
-notion db query <db_id> --title "Known Page" --json
-notion db query <db_id> --limit 20 --llm                   # compact output
+notion db query "Tasks" --title "Known Page" --json
+notion db query "Tasks" --limit 20 --llm                   # compact output
 
 # Fuzzy search (workspace-wide, best-effort — Notion may miss long titles)
 notion search "keyword" --limit 10

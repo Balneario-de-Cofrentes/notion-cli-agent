@@ -7,6 +7,7 @@ import { formatOutput } from '../utils/format.js';
 import { getPageTitle, buildTrashPayload } from '../utils/notion-helpers.js';
 import { queryAllPages } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Page } from '../types/notion.js';
 
 // ─── Title normalization ────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ export function registerDedupCommand(program: Command): void {
     .option('--llm', 'Compact LLM-friendly output')
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (databaseId: string, options) => {
+      databaseId = resolveDatabaseInput(databaseId);
       const client = getClient();
 
       // Fetch all pages

@@ -58,7 +58,14 @@ File: `~/.config/notion/workspace.json`
       "title": "Areas of Responsibility",
       "purpose": "Life areas / PARA system"
     }
-  }
+  },
+
+  "syncedAt": "2026-04-07T12:00:00.000Z",
+  "registry": [
+    { "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "title": "Tasks", "url": "https://notion.so/...", "syncedAt": "2026-04-07T12:00:00.000Z" },
+    { "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "title": "Projects", "url": "https://notion.so/...", "syncedAt": "2026-04-07T12:00:00.000Z" },
+    { "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "title": "Contacts", "url": "https://notion.so/...", "syncedAt": "2026-04-07T12:00:00.000Z" }
+  ]
 }
 ```
 
@@ -75,6 +82,8 @@ File: `~/.config/notion/workspace.json`
 | `databases.projects` | recommended | Project containers |
 | `databases.goals` | no | OKRs, objectives, goals |
 | `custom.*` | no | Any other key databases, keyed by short name |
+| `syncedAt` | no | ISO timestamp of last `notion sync` |
+| `registry` | no | Flat array of all databases (auto-populated by `notion sync`) |
 
 ## Database entry fields
 
@@ -101,5 +110,12 @@ STATE=$(cat ~/.config/notion/workspace.json 2>/dev/null)
 TASKS_DB=$(echo "$STATE" | jq -r '.databases.tasks.id')
 ```
 
-Skills should gracefully handle missing state by suggesting the user run onboarding first:
-> "I don't have your Notion workspace mapped yet. Run the notion-onboarding skill first."
+Skills should gracefully handle missing state by suggesting the user run onboarding or sync first:
+> "I don't have your Notion workspace mapped yet. Run `notion sync` for basic name-to-ID resolution, or run the notion-onboarding skill for full semantic mapping."
+
+## registry vs databases/custom
+
+- `databases` and `custom` are hand-curated by the onboarding skill with semantic metadata (statusProp, statuses, assigneeProp, etc.)
+- `registry` is auto-populated by `notion sync` with just id + title + url
+- Name resolution checks `databases`/`custom` first (curated), then falls back to `registry`
+- Both can coexist in the same file

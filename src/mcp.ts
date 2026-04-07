@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { createMcpServer } from 'mcp-stdio';
 import { initClient, getClient } from './client.js';
 import { getDatabaseSchema, queryDatabase } from './utils/database-resolver.js';
+import { resolveDatabaseInput } from './utils/workspace-resolver.js';
 import { getPageTitle, getDbTitle, fetchAllBlocks, buildTrashPayload } from './utils/notion-helpers.js';
 import type { Page, PaginatedResponse, Database } from './types/notion.js';
 
@@ -125,14 +126,15 @@ export async function startMcpServer(): Promise<void> {
         parameters: {
           type: 'object',
           properties: {
-            parent_id: { type: 'string', description: 'Database ID' },
+            parent_id: { type: 'string', description: 'Database ID or name' },
             title: { type: 'string', description: 'Page title' },
             properties: { type: 'object', description: 'Additional properties in Notion format' },
           },
           required: ['parent_id', 'title'],
         },
         handler: async (params) => {
-          const db = await getDatabaseSchema(client, params.parent_id as string);
+          const parentId = resolveDatabaseInput(String(params.parent_id));
+          const db = await getDatabaseSchema(client, parentId);
           const titleProp = Object.entries(db.properties).find(([, p]) => p.type === 'title')?.[0] || 'Name';
 
           const properties: Record<string, unknown> = {
@@ -141,7 +143,7 @@ export async function startMcpServer(): Promise<void> {
           };
 
           const page = await client.post('pages', {
-            parent: { database_id: params.parent_id },
+            parent: { database_id: parentId },
             properties,
           });
           return JSON.stringify(page);
@@ -176,7 +178,7 @@ export async function startMcpServer(): Promise<void> {
         parameters: {
           type: 'object',
           properties: {
-            database_id: { type: 'string', description: 'Database ID' },
+            database_id: { type: 'string', description: 'Database ID or name' },
             filter: { type: 'object', description: 'Notion filter object' },
             sorts: { type: 'array', description: 'Sort criteria' },
             title: { type: 'string', description: 'Filter by exact title' },
@@ -185,10 +187,11 @@ export async function startMcpServer(): Promise<void> {
           required: ['database_id'],
         },
         handler: async (params) => {
+          const dbId = resolveDatabaseInput(String(params.database_id));
           const body: Record<string, unknown> = {};
 
           if (params.title) {
-            const db = await getDatabaseSchema(client, params.database_id as string);
+            const db = await getDatabaseSchema(client, dbId);
             const titleProp = Object.entries(db.properties).find(([, p]) => p.type === 'title')?.[0] || 'Name';
             body.filter = { property: titleProp, title: { equals: params.title } };
           } else if (params.filter) {
@@ -198,7 +201,7 @@ export async function startMcpServer(): Promise<void> {
           if (params.sorts) body.sorts = params.sorts;
           body.page_size = (params.limit as number) || 100;
 
-          const result = await queryDatabase<PaginatedResponse<Page>>(client, params.database_id as string, body);
+          const result = await queryDatabase<PaginatedResponse<Page>>(client, dbId, body);
           return JSON.stringify(result);
         },
       },
@@ -208,12 +211,12 @@ export async function startMcpServer(): Promise<void> {
         parameters: {
           type: 'object',
           properties: {
-            database_id: { type: 'string', description: 'Database ID' },
+            database_id: { type: 'string', description: 'Database ID or name' },
           },
           required: ['database_id'],
         },
         handler: async (params) => {
-          const db = await getDatabaseSchema(client, params.database_id as string);
+          const db = await getDatabaseSchema(client, resolveDatabaseInput(String(params.database_id)));
           return JSON.stringify(db);
         },
       },
@@ -261,13 +264,13 @@ export async function startMcpServer(): Promise<void> {
           type: 'object',
           properties: {
             query: { type: 'string', description: 'Natural language query' },
-            database_id: { type: 'string', description: 'Database ID to search' },
+            database_id: { type: 'string', description: 'Database ID or name' },
             limit: { type: 'number', description: 'Max results (default 20)' },
           },
           required: ['query', 'database_id'],
         },
         handler: async (params) => {
-          const dbId = assertNotionId(params.database_id, 'database_id');
+          const dbId = resolveDatabaseInput(String(params.database_id));
           const limit = String(Number(params.limit) || 20);
           return runSubcommand(
             ['find', String(params.query), '-d', dbId, '--json', '--limit', limit],
@@ -348,12 +351,12 @@ export async function startMcpServer(): Promise<void> {
         parameters: {
           type: 'object',
           properties: {
-            database_id: { type: 'string', description: 'Database ID' },
+            database_id: { type: 'string', description: 'Database ID or name' },
           },
           required: ['database_id'],
         },
         handler: async (params) => {
-          const dbId = assertNotionId(params.database_id, 'database_id');
+          const dbId = resolveDatabaseInput(String(params.database_id));
           return runSubcommand(['validate', 'health', dbId]);
         },
       },
@@ -365,13 +368,13 @@ export async function startMcpServer(): Promise<void> {
         parameters: {
           type: 'object',
           properties: {
-            database_id: { type: 'string', description: 'Database ID' },
+            database_id: { type: 'string', description: 'Database ID or name' },
             fuzzy: { type: 'boolean', description: 'Include near-duplicates' },
           },
           required: ['database_id'],
         },
         handler: async (params) => {
-          const dbId = assertNotionId(params.database_id, 'database_id');
+          const dbId = resolveDatabaseInput(String(params.database_id));
           const args = ['dedup', dbId, '--json'];
           if (params.fuzzy) args.push('--fuzzy');
           return runSubcommand(args);

@@ -7,6 +7,7 @@ import { formatOutput } from '../utils/format.js';
 import { getDatabaseSchema, queryDatabase, queryAllPages } from '../utils/database-resolver.js';
 import { getDbTitle } from '../utils/notion-helpers.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Page, Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
@@ -51,6 +52,7 @@ export function registerStatsCommand(program: Command): void {
     .option('-j, --json', 'Output as JSON')
     .option('--llm', 'LLM-friendly output')
     .action(withErrorHandler(async (databaseId: string, options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         // Get database info
@@ -204,6 +206,7 @@ export function registerStatsCommand(program: Command): void {
     .option('-d, --days <number>', 'Number of days to show', '14')
     .option('-j, --json', 'Output as JSON')
     .action(withErrorHandler(async (databaseId: string, options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         const days = parseInt(options.days, 10);

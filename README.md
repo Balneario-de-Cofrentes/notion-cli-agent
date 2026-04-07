@@ -77,6 +77,7 @@ skills/
 - **Validation** — Find missing fields, overdue items, stale entries
 
 ### 🔗 Advanced Features
+- **Workspace Sync** — Cache databases locally, use names instead of UUIDs everywhere
 - **Templates** — Save and reuse page structures
 - **Backup** — Full database backup to JSON/Markdown
 - **Duplicate** — Clone pages and entire databases
@@ -141,6 +142,30 @@ notion --token "ntn_xxx" search "query"
 
 1. Open any page or database in Notion
 2. Click "..." menu → "Connect to" → Select your integration
+
+---
+
+## 🔄 Workspace Sync
+
+Sync your workspace to use database names instead of UUIDs:
+
+```bash
+# Cache all accessible databases locally
+notion sync
+
+# List cached databases
+notion list
+notion list --json         # For scripts
+notion list --ids-only     # One ID per line
+
+# Now use names anywhere you'd use a database UUID
+notion db query "Tasks" --limit 5
+notion find "Tasks" "overdue assigned to me"
+notion validate health "Projects"
+notion stats overview "OKRs"
+```
+
+All database commands accept both UUIDs and names. Name resolution uses case-insensitive matching with substring fallback. If a name is ambiguous, the CLI shows candidates and asks you to be more specific.
 
 ---
 

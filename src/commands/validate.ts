@@ -7,6 +7,7 @@ import { getDatabaseSchema, queryDatabase, queryAllPages } from '../utils/databa
 import { formatOutput } from '../utils/format.js';
 import { getPageTitle, getDbTitle } from '../utils/notion-helpers.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Page, Database, PropertySchema } from '../types/notion.js';
 
 interface ValidationIssue {
@@ -69,6 +70,7 @@ export function registerValidateCommand(program: Command): void {
     .option('-j, --json', 'Output as JSON')
     .option('--fix', 'Show fix suggestions')
     .action(withErrorHandler(async (databaseId: string, options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
         const issues: ValidationIssue[] = [];
 
@@ -284,6 +286,7 @@ export function registerValidateCommand(program: Command): void {
     .command('lint <database_id>')
     .description('Quick lint check for common issues')
     .action(withErrorHandler(async (databaseId: string) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         // Get database
@@ -392,6 +395,7 @@ export function registerValidateCommand(program: Command): void {
     .command('health <database_id>')
     .description('Get a health score for the database')
     .action(withErrorHandler(async (databaseId: string) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         const db = await getDatabaseSchema(client, databaseId);
