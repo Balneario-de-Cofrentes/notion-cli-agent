@@ -4,7 +4,7 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput, formatDatabaseTitle, parseFilter, formatResultsAsDelimited } from '../utils/format.js';
-import { getDatabaseSchema, queryDatabase, updateDatabase } from '../utils/database-resolver.js';
+import { getDatabaseSchema, queryDatabase, updateDatabase, resolveDatabaseId } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import { getPageTitle } from '../utils/notion-helpers.js';
 import type { Database, PaginatedResponse, Page } from '../types/notion.js';
@@ -18,11 +18,12 @@ export function registerDatabasesCommand(program: Command): void {
 
   // Get database
   databases
-    .command('get <database_id>')
-    .description('Retrieve a database by ID')
+    .command('get <database>')
+    .description('Retrieve a database by ID or name')
     .option('-j, --json', 'Output raw JSON')
-    .action(withErrorHandler(async (databaseId: string, options) => {
+    .action(withErrorHandler(async (database: string, options) => {
       const client = getClient();
+      const databaseId = await resolveDatabaseId(client, database);
       const db = await getDatabaseSchema(client, databaseId) as Database & Record<string, unknown>;
 
       if (options.json) {
@@ -39,8 +40,8 @@ export function registerDatabasesCommand(program: Command): void {
 
   // Query database
   databases
-    .command('query <database_id>')
-    .description('Query a database')
+    .command('query <database>')
+    .description('Query a database by ID or name')
     .option('-f, --filter <json>', 'Filter as JSON string (repeatable)', (v: string, a: string[]) => [...a, v], [] as string[])
     .option('--filter-prop <property>', 'Property to filter on (repeatable)', (v, a: string[]) => [...a, v], [] as string[])
     .option('--filter-type <type>', 'Filter type: equals, contains, etc. (repeatable)', (v, a: string[]) => [...a, v], [] as string[])
@@ -56,8 +57,9 @@ export function registerDatabasesCommand(program: Command): void {
     .option('--csv', 'Output as CSV')
     .option('--tsv', 'Output as TSV (tab-separated)')
     .option('--ids-only', 'Output only page IDs, one per line')
-    .action(withErrorHandler(async (databaseId: string, options) => {
+    .action(withErrorHandler(async (database: string, options) => {
       const client = getClient();
+      const databaseId = await resolveDatabaseId(client, database);
 
       const body: Record<string, unknown> = {};
 
