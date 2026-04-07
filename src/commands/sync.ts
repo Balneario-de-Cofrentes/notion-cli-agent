@@ -7,17 +7,14 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
+import { getDbTitle } from '../utils/notion-helpers.js';
 import { writeWorkspaceRegistry, getWorkspacePath } from '../utils/workspace-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import type { RegistryEntry } from '../utils/workspace-resolver.js';
+import type { Database } from '../types/notion.js';
 
 interface SearchResult {
-  results: Array<{
-    id: string;
-    title?: Array<{ plain_text: string }>;
-    url?: string;
-    properties?: Record<string, { type: string }>;
-  }>;
+  results: Array<Database & { url?: string }>;
   has_more: boolean;
   next_cursor?: string;
 }
@@ -34,7 +31,6 @@ export function registerSyncCommand(program: Command): void {
       let cursor: string | undefined;
       const now = new Date().toISOString();
 
-      // Paginate through all accessible databases
       do {
         const body: Record<string, unknown> = {
           filter: { property: 'object', value: 'data_source' },
@@ -45,10 +41,9 @@ export function registerSyncCommand(program: Command): void {
         const result = await client.post('search', body) as SearchResult;
 
         for (const db of result.results) {
-          const title = db.title?.map(t => t.plain_text).join('') || '';
           entries.push({
             id: db.id,
-            title: title || 'Untitled',
+            title: getDbTitle(db),
             url: db.url,
             syncedAt: now,
           });
@@ -57,7 +52,6 @@ export function registerSyncCommand(program: Command): void {
         cursor = result.has_more ? (result.next_cursor ?? undefined) : undefined;
       } while (cursor);
 
-      // Write to workspace.json (preserves existing onboarding data)
       writeWorkspaceRegistry(entries);
 
       if (options.json) {

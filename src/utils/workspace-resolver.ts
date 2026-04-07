@@ -78,7 +78,6 @@ export function writeWorkspaceRegistry(entries: RegistryEntry[]): void {
     mkdirSync(dir, { recursive: true });
   }
 
-  // Merge with existing file (preserve onboarding data)
   const existing = readWorkspace() ?? { version: 1 };
   const now = new Date().toISOString();
 
@@ -95,14 +94,18 @@ export function writeWorkspaceRegistry(entries: RegistryEntry[]): void {
 
 // ─── List all known databases ───────────────────────────────────────────────
 
-export function listKnownDatabases(): KnownDatabase[] {
-  const state = readWorkspace();
+/**
+ * Collect all databases from workspace state, deduped by ID.
+ * Curated entries (databases/custom) take priority over registry.
+ * Accepts an optional pre-read state to avoid redundant disk reads.
+ */
+export function listKnownDatabases(preloaded?: WorkspaceState | null): KnownDatabase[] {
+  const state = preloaded ?? readWorkspace();
   if (!state) return [];
 
   const seen = new Set<string>();
   const results: KnownDatabase[] = [];
 
-  // Curated databases first (from onboarding)
   if (state.databases) {
     for (const [role, entry] of Object.entries(state.databases)) {
       if (entry.id && !seen.has(entry.id)) {
@@ -112,7 +115,6 @@ export function listKnownDatabases(): KnownDatabase[] {
     }
   }
 
-  // Custom databases (from onboarding)
   if (state.custom) {
     for (const [role, entry] of Object.entries(state.custom)) {
       if (entry.id && !seen.has(entry.id)) {
@@ -122,7 +124,6 @@ export function listKnownDatabases(): KnownDatabase[] {
     }
   }
 
-  // Registry (from sync) -- only add if not already seen
   if (state.registry) {
     for (const entry of state.registry) {
       if (entry.id && !seen.has(entry.id)) {
@@ -141,43 +142,38 @@ export function listKnownDatabases(): KnownDatabase[] {
  * Resolve a database identifier that may be a UUID or a human-friendly name.
  * Returns a Notion UUID. Throws on ambiguous matches.
  *
- * Resolution order:
- * 1. UUID regex match -> pass through
- * 2. No workspace cache -> pass through (let the API validate)
- * 3. Exact title match (case-sensitive)
- * 4. Case-insensitive match
- * 5. Substring match (case-insensitive)
+ * Resolution: UUID pass-through, then exact > case-insensitive > substring matching.
  */
 export function resolveDatabaseInput(input: string): string {
   if (isNotionUUID(input)) return input;
 
   const state = readWorkspace();
   if (!state) {
-    // No workspace cache: pass through and let the Notion API handle it.
-    // This avoids breaking workflows where sync hasn't been run yet.
+    process.stderr.write(
+      `Warning: no workspace cache found. Run "notion sync" to enable name-based lookups.\n`,
+    );
     return input;
   }
 
-  const all = listKnownDatabases();
+  const all = listKnownDatabases(state);
   if (all.length === 0) {
+    process.stderr.write(
+      `Warning: workspace cache is empty. Run "notion sync" to index your databases.\n`,
+    );
     return input;
   }
 
-  // 1. Exact match (case-sensitive)
   const exact = all.filter(db => db.title === input);
   if (exact.length === 1) return exact[0].id;
 
-  // 2. Case-insensitive match
   const lower = input.toLowerCase();
   const ciMatch = all.filter(db => db.title.toLowerCase() === lower);
   if (ciMatch.length === 1) return ciMatch[0].id;
 
-  // 3. Substring match
   const substring = all.filter(db => db.title.toLowerCase().includes(lower));
   if (substring.length === 1) return substring[0].id;
 
-  // Multiple matches -- show candidates
-  const candidates = (ciMatch.length > 1 ? ciMatch : substring.length > 1 ? substring : exact);
+  const candidates = [ciMatch, substring, exact].find(c => c.length > 1) ?? [];
   if (candidates.length > 1) {
     const list = candidates
       .map(db => `  - ${db.title} (${db.id.slice(0, 8)}...)${db.role ? ` [${db.role}]` : ''}`)
@@ -187,7 +183,6 @@ export function resolveDatabaseInput(input: string): string {
     );
   }
 
-  // No match
   const suggestions = all.map(db => db.title).slice(0, 5).join(', ');
   throw new Error(
     `No database found matching "${input}".\nAvailable: ${suggestions}${all.length > 5 ? ` (+${all.length - 5} more)` : ''}\nRun "notion list" to see all databases, or "notion sync" to refresh.`,

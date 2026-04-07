@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { createMcpServer } from 'mcp-stdio';
 import { initClient, getClient } from './client.js';
 import { getDatabaseSchema, queryDatabase } from './utils/database-resolver.js';
-import { resolveDatabaseInput } from './utils/workspace-resolver.js';
+import { resolveDatabaseInput, isNotionUUID } from './utils/workspace-resolver.js';
 import { getPageTitle, getDbTitle, fetchAllBlocks, buildTrashPayload } from './utils/notion-helpers.js';
 import type { Page, PaginatedResponse, Database } from './types/notion.js';
 
@@ -20,14 +20,12 @@ const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
 
 /**
- * Notion IDs are UUIDs (with or without dashes). Reject anything else
- * to prevent argument injection when passing IDs to subprocess argv.
+ * Reject non-UUID values to prevent argument injection in subprocess argv.
+ * Uses the shared UUID regex from workspace-resolver.
  */
-const NOTION_ID_RE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
-
 function assertNotionId(value: unknown, label: string): string {
   const id = String(value);
-  if (!NOTION_ID_RE.test(id)) {
+  if (!isNotionUUID(id)) {
     throw new Error(`Invalid ${label}: expected a Notion UUID, got "${id}"`);
   }
   return id;

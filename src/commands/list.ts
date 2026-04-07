@@ -22,7 +22,7 @@ export function registerListCommand(program: Command): void {
         process.exit(1);
       }
 
-      const databases = listKnownDatabases();
+      const databases = listKnownDatabases(state);
       if (databases.length === 0) {
         console.error('Workspace cache is empty. Run "notion sync" to index your databases.');
         process.exit(1);
