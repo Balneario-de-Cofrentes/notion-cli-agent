@@ -11,6 +11,7 @@ import {
 import { queryAllPages } from '../utils/database-resolver.js';
 import { blocksToMarkdownAsync, getPropertyRawValue } from '../utils/notion-helpers.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { RichText, Page } from '../types/notion.js';
 
 /** Property raw value options pre-configured with markdown formatting for rich text. */
@@ -143,6 +144,7 @@ export function registerExportCommand(program: Command): void {
     .option('--limit <number>', 'Max entries to export')
     .option('--filter <json>', 'Filter as JSON')
     .action(withErrorHandler(async (databaseId: string, options) => {
+      databaseId = resolveDatabaseInput(databaseId);
       const client = getClient();
         
         // Determine output folder

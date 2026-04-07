@@ -6,6 +6,7 @@ import { getClient } from '../client.js';
 import { fetchAllBlocks, getPageTitle, getDbTitle, isParentDatabase, getParentDatabaseId } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryAllPages } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Block, Page, Database } from '../types/notion.js';
 
 // Clean block for duplication (remove IDs, etc.)
@@ -169,6 +170,7 @@ export function registerDuplicateCommand(program: Command): void {
     .requiredOption('--to <page_id>', 'Target parent page ID')
     .option('-t, --title <title>', 'New database title')
     .action(withErrorHandler(async (databaseId: string, options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         // Get source database
@@ -282,6 +284,7 @@ export function registerDuplicateCommand(program: Command): void {
     .option('--limit <number>', 'Max entries to copy')
     .option('--dry-run', 'Show what would be cloned')
     .action(withErrorHandler(async (databaseId: string, options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         // Get source database

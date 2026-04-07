@@ -7,6 +7,7 @@ import { getClient } from '../client.js';
 import { fetchAllBlocks, getPageTitle, getDbTitle, getDbDescription, getPropertyValue } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Block, Page, Database, PropertySchema } from '../types/notion.js';
 
 interface SelectOption {
@@ -236,6 +237,7 @@ export function registerAICommand(program: Command): void {
     .description('Generate an optimal prompt for an AI agent to work with this database')
     .option('--examples <number>', 'Number of example entries', '2')
     .action(withErrorHandler(async (databaseId: string, options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
 
         // Get database
@@ -368,6 +370,7 @@ export function registerAICommand(program: Command): void {
     .command('suggest <database_id> <description>')
     .description('Suggest the right command based on natural language')
     .action(withErrorHandler(async (databaseId: string, description: string, _options) => {
+        databaseId = resolveDatabaseInput(databaseId);
         const client = getClient();
         const db = await getDatabaseSchema(client, databaseId);
         const lowerDesc = description.toLowerCase();

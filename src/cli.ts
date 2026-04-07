@@ -2,7 +2,7 @@
 /**
  * Notion CLI - Full-featured command line interface for Notion API
  * Built for humans AND AI agents
- * 
+ *
  * Usage:
  *   notion search "my query"
  *   notion page get <page_id>
@@ -45,6 +45,8 @@ import { registerRelationsCommand } from './commands/relations.js';
 import { registerHelpAgentCommand } from './commands/help-agent.js';
 import { registerDedupCommand } from './commands/dedup.js';
 import { registerDoctorCommand } from './commands/doctor.js';
+import { registerSyncCommand } from './commands/sync.js';
+import { registerListCommand } from './commands/list.js';
 
 const program = new Command();
 
@@ -87,6 +89,8 @@ registerBackupCommand(program);
 registerRelationsCommand(program);
 registerDedupCommand(program);
 registerDoctorCommand(program);
+registerSyncCommand(program);
+registerListCommand(program);
 registerHelpAgentCommand(program);
 
 // Raw API command for advanced users

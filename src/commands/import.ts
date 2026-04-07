@@ -8,6 +8,7 @@ import * as path from 'path';
 import { markdownToBlocks } from '../utils/markdown.js';
 import { getDatabaseSchema } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Database, PropertySchema } from '../types/notion.js';
 
 interface FrontMatter {
@@ -227,6 +228,7 @@ export function registerImportCommand(program: Command): void {
     .option('--dry-run', 'Show what would be imported without making changes')
     .option('--limit <number>', 'Max files to import')
     .action(withErrorHandler(async (vaultPath: string, options) => {
+        options.to = resolveDatabaseInput(options.to);
         const client = getClient();
 
         // Get database schema
@@ -344,6 +346,7 @@ export function registerImportCommand(program: Command): void {
     .option('--dry-run', 'Show what would be imported without making changes')
     .option('--limit <number>', 'Max rows to import')
     .action(withErrorHandler(async (filePath: string, options) => {
+        options.to = resolveDatabaseInput(options.to);
         const client = getClient();
 
         // Get database schema

@@ -8,6 +8,7 @@ import { parseFilter, parseProperties } from '../utils/format.js';
 import { getPageTitle, buildTrashPayload } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Page, Database, PropertySchema, PaginatedResponse } from '../types/notion.js';
 
 // Parse simple where clause: "Status=Done,Priority=High"
@@ -103,6 +104,7 @@ export function registerBulkCommand(program: Command): void {
     .option('--limit <number>', 'Max entries to update', '100')
     .option('--yes', 'Skip confirmation')
     .action(withErrorHandler(async (databaseId: string, options) => {
+      databaseId = resolveDatabaseInput(databaseId);
       const client = getClient();
 
       // Get database schema
@@ -185,6 +187,7 @@ export function registerBulkCommand(program: Command): void {
     .option('--limit <number>', 'Max entries to archive', '100')
     .option('--yes', 'Skip confirmation')
     .action(withErrorHandler(async (databaseId: string, options) => {
+      databaseId = resolveDatabaseInput(databaseId);
       const client = getClient();
 
       // Get database schema

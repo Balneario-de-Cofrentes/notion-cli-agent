@@ -8,6 +8,7 @@ import { formatOutput, formatResultsAsDelimited } from '../utils/format.js';
 import { getPageTitle } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Page, Database, PropertySchema, PaginatedResponse } from '../types/notion.js';
 
 interface SelectOption {
@@ -190,10 +191,11 @@ export function registerFindCommand(program: Command): void {
     .option('--tsv', 'Output as TSV (tab-separated)')
     .option('--ids-only', 'Output only page IDs, one per line')
     .action(withErrorHandler(async (query: string, options) => {
+      const resolvedDb = resolveDatabaseInput(options.database);
       const client = getClient();
-        
+
         // Get database schema first
-        const db = await getDatabaseSchema(client, options.database);
+        const db = await getDatabaseSchema(client, resolvedDb);
         const schema = db.properties;
         
         // Parse the query
@@ -302,7 +304,7 @@ export function registerFindCommand(program: Command): void {
           console.log('🔍 Parsed query:', JSON.stringify(parsed, null, 2));
           console.log('\n📋 Generated filter:', JSON.stringify(filter, null, 2));
           console.log('\n💡 To execute manually:');
-          console.log(`notion db query ${options.database} --filter '${JSON.stringify(filter)}'`);
+          console.log(`notion db query ${resolvedDb} --filter '${JSON.stringify(filter)}'`);
           return;
         }
         
@@ -312,7 +314,7 @@ export function registerFindCommand(program: Command): void {
         };
         if (filter) body.filter = filter;
         
-        const result = await queryDatabase<PaginatedResponse<Page>>(client, options.database, body);
+        const result = await queryDatabase<PaginatedResponse<Page>>(client, resolvedDb, body);
         
         // Output
         if (options.json) {

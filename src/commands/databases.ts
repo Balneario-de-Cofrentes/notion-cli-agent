@@ -4,8 +4,9 @@
 import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput, formatDatabaseTitle, parseFilter, formatResultsAsDelimited } from '../utils/format.js';
-import { getDatabaseSchema, queryDatabase, updateDatabase, resolveDatabaseId } from '../utils/database-resolver.js';
+import { getDatabaseSchema, queryDatabase, updateDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import { getPageTitle } from '../utils/notion-helpers.js';
 import type { Database, PaginatedResponse, Page } from '../types/notion.js';
 
@@ -22,8 +23,8 @@ export function registerDatabasesCommand(program: Command): void {
     .description('Retrieve a database by ID or name')
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (database: string, options) => {
+      const databaseId = resolveDatabaseInput(database);
       const client = getClient();
-      const databaseId = await resolveDatabaseId(client, database);
       const db = await getDatabaseSchema(client, databaseId) as Database & Record<string, unknown>;
 
       if (options.json) {
@@ -58,8 +59,8 @@ export function registerDatabasesCommand(program: Command): void {
     .option('--tsv', 'Output as TSV (tab-separated)')
     .option('--ids-only', 'Output only page IDs, one per line')
     .action(withErrorHandler(async (database: string, options) => {
+      const databaseId = resolveDatabaseInput(database);
       const client = getClient();
-      const databaseId = await resolveDatabaseId(client, database);
 
       const body: Record<string, unknown> = {};
 
@@ -210,13 +211,14 @@ export function registerDatabasesCommand(program: Command): void {
 
   // Update database
   databases
-    .command('update <database_id>')
+    .command('update <database>')
     .description('Update database properties')
     .option('-t, --title <title>', 'New title')
     .option('--add-prop <name:type>', 'Add a property')
     .option('--remove-prop <name>', 'Remove a property')
     .option('-j, --json', 'Output raw JSON')
-    .action(withErrorHandler(async (databaseId: string, options) => {
+    .action(withErrorHandler(async (database: string, options) => {
+      const databaseId = resolveDatabaseInput(database);
       const client = getClient();
 
       const body: Record<string, unknown> = {};
