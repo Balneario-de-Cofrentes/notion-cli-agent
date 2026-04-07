@@ -456,7 +456,7 @@ describe('AI Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'ai', 'prompt', 'invalid-db'])
+        program.parseAsync(['node', 'test', 'ai', 'prompt', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');
@@ -466,7 +466,7 @@ describe('AI Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'ai', 'suggest', 'invalid-db', 'query'])
+        program.parseAsync(['node', 'test', 'ai', 'suggest', 'bad-db-000', 'query'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');

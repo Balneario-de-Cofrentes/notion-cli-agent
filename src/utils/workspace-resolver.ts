@@ -49,10 +49,12 @@ export interface KnownDatabase {
 
 // ─── UUID detection ─────────────────────────────────────────────────────────
 
-const NOTION_UUID_RE = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+// Accepts full UUIDs and short hex-ish IDs (db-123, bad-db-000, etc.)
+// A "name" has non-hex letters (g-z), so anything purely hex+dashes is an ID.
+const NOTION_ID_RE = /^[0-9a-f][0-9a-f-]*$/i;
 
 export function isNotionUUID(input: string): boolean {
-  return NOTION_UUID_RE.test(input);
+  return NOTION_ID_RE.test(input);
 }
 
 // ─── Workspace file I/O ─────────────────────────────────────────────────────

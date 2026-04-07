@@ -450,7 +450,7 @@ describe('Export Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'export', 'database', 'invalid-db', '--vault', '/vault'])
+        program.parseAsync(['node', 'test', 'export', 'database', 'bad-db-000', '--vault', '/vault'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');

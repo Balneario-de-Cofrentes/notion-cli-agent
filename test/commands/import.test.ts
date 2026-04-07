@@ -351,7 +351,7 @@ Task 3,Todo,Low,2026-03-01`;
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'import', 'csv', '/tmp/data.csv', '--to', 'invalid-db'])
+        program.parseAsync(['node', 'test', 'import', 'csv', '/tmp/data.csv', '--to', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');

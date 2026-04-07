@@ -305,7 +305,7 @@ describe('Backup Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'backup', 'invalid-db', '--output', '/backup'])
+        program.parseAsync(['node', 'test', 'backup', 'bad-db-000', '--output', '/backup'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');

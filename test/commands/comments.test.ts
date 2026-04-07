@@ -228,7 +228,7 @@ describe('Comments Command', () => {
       mockClient.get.mockRejectedValue(new Error('Comment not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'comment', 'get', 'invalid-id'])
+        program.parseAsync(['node', 'test', 'comment', 'get', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Comment not found');

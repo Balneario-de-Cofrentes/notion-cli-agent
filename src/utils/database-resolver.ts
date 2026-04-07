@@ -67,67 +67,6 @@ export function clearResolverCache(): void {
   cache.clear();
 }
 
-// ─── Name-based database lookup ──────────────────────────────────────────────
-
-// Looks like an ID if it's only hex digits and dashes (no spaces, no letters beyond a-f)
-const ID_RE = /^[0-9a-f][0-9a-f-]*$/i;
-
-/**
- * Resolve a database identifier that may be an ID or a human-readable name.
- * If it looks like an ID (hex chars, dashes), returns it as-is. Otherwise:
- * 1. Checks ~/.config/notion/workspace.json for a matching database name
- * 2. Falls back to API search
- * Throws if no match or multiple ambiguous matches.
- */
-export async function resolveDatabaseId(
-  client: NotionClient,
-  idOrName: string,
-): Promise<string> {
-  if (ID_RE.test(idOrName)) return idOrName;
-
-  const lowerName = idOrName.toLowerCase().trim();
-
-  // Try workspace.json first
-  try {
-    const fs = await import('fs');
-    const path = await import('path');
-    const os = await import('os');
-    const wsPath = path.join(os.homedir(), '.config', 'notion', 'workspace.json');
-    if (fs.existsSync(wsPath)) {
-      const ws = JSON.parse(fs.readFileSync(wsPath, 'utf-8'));
-      const databases = ws.databases || {};
-      for (const [key, db] of Object.entries(databases)) {
-        const entry = db as { id?: string; name?: string };
-        const name = (entry.name || key).toLowerCase();
-        if (name === lowerName) return entry.id || key;
-      }
-    }
-  } catch {
-    // workspace.json not found or malformed — fall through to search
-  }
-
-  // Fall back to API search — returns data_source objects on v2026-03-11
-  const result = await client.post<{ results: { id: string; title?: { plain_text: string }[]; parent?: { database_id?: string } }[] }>('search', {
-    query: idOrName,
-    filter: { property: 'object', value: 'data_source' },
-    page_size: 10,
-  });
-
-  const matches = result.results.filter(r => {
-    const title = r.title?.map(t => t.plain_text).join('').toLowerCase() || '';
-    return title === lowerName;
-  });
-
-  // Return the parent database_id if available, otherwise the data_source id
-  if (matches.length === 1) return matches[0].parent?.database_id || matches[0].id;
-  if (matches.length > 1) {
-    const list = matches.map(m => `  - ${m.id} (${m.title?.map(t => t.plain_text).join('')})`).join('\n');
-    throw new Error(`Ambiguous database name "${idOrName}" matches ${matches.length} databases:\n${list}\nUse the database ID instead.`);
-  }
-
-  throw new Error(`Database "${idOrName}" not found. Use 'notion inspect ws' to list accessible databases, or pass the database ID directly.`);
-}
-
 // ─── Core resolution ────────────────────────────────────────────────────────
 
 function buildPaths(dataSourceId: string) {

@@ -23,6 +23,11 @@ describe('Bulk Command', () => {
       initClient: vi.fn(),
     }));
 
+    // Mock workspace resolver (pass-through for tests)
+    vi.doMock('../../src/utils/workspace-resolver', () => ({
+      resolveDatabaseInput: (id: string) => id,
+    }));
+
     // Import command and register it
     const { registerBulkCommand } = await import('../../src/commands/bulk');
     program = new Command();
@@ -344,7 +349,7 @@ describe('Bulk Command', () => {
 
       await expect(
         program.parseAsync([
-          'node', 'test', 'bulk', 'update', 'invalid-db',
+          'node', 'test', 'bulk', 'update', 'bad-db-000',
           '--where', 'Status=Todo',
           '--set', 'Status=Done',
           '--yes',

@@ -451,7 +451,7 @@ describe('Duplicate Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'duplicate', 'schema', 'invalid-db', '--to', 'page-parent'])
+        program.parseAsync(['node', 'test', 'duplicate', 'schema', 'bad-db-000', '--to', 'page-parent'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');
@@ -610,7 +610,7 @@ describe('Duplicate Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'duplicate', 'database', 'invalid-db', '--to', 'page-parent'])
+        program.parseAsync(['node', 'test', 'duplicate', 'database', 'bad-db-000', '--to', 'page-parent'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');

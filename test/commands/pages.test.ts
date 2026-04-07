@@ -562,7 +562,7 @@ describe('Pages Command', () => {
       mockClient.get.mockRejectedValue(new Error('Page not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'page', 'get', 'invalid-id'])
+        program.parseAsync(['node', 'test', 'page', 'get', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Page not found');
@@ -574,7 +574,7 @@ describe('Pages Command', () => {
       await expect(
         program.parseAsync([
           'node', 'test', 'page', 'create',
-          '--parent', 'invalid-id',
+          '--parent', 'bad-db-000',
           '--title', 'New Page',
         ])
       ).rejects.toThrow('process.exit(1)');

@@ -259,7 +259,7 @@ describe('Users Command', () => {
       mockClient.get.mockRejectedValue(new Error('User not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'user', 'get', 'invalid-id'])
+        program.parseAsync(['node', 'test', 'user', 'get', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'User not found');

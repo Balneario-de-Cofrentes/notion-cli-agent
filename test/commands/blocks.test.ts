@@ -321,7 +321,7 @@ describe('Blocks Command', () => {
       mockClient.get.mockRejectedValue(new Error('Block not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'block', 'get', 'invalid-id'])
+        program.parseAsync(['node', 'test', 'block', 'get', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Block not found');

@@ -457,7 +457,7 @@ describe('Validate Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'validate', 'check', 'invalid-id'])
+        program.parseAsync(['node', 'test', 'validate', 'check', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');

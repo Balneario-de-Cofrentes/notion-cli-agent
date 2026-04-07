@@ -316,7 +316,7 @@ describe('Inspect Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'inspect', 'schema', 'invalid-db'])
+        program.parseAsync(['node', 'test', 'inspect', 'schema', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');
@@ -517,7 +517,7 @@ describe('Inspect Command', () => {
       mockClient.get.mockRejectedValue(new Error('Database not found'));
 
       await expect(
-        program.parseAsync(['node', 'test', 'inspect', 'context', 'invalid-db'])
+        program.parseAsync(['node', 'test', 'inspect', 'context', 'bad-db-000'])
       ).rejects.toThrow('process.exit(1)');
 
       expect(console.error).toHaveBeenCalledWith('Error:', 'Database not found');
