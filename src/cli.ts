@@ -47,6 +47,7 @@ import { registerDedupCommand } from './commands/dedup.js';
 import { registerDoctorCommand } from './commands/doctor.js';
 import { registerSyncCommand } from './commands/sync.js';
 import { registerListCommand } from './commands/list.js';
+import { checkForUpdateInBackground } from './utils/update-notifier.js';
 
 const program = new Command();
 
@@ -136,5 +137,6 @@ program
 if (process.argv.includes('--mcp')) {
   import('./mcp.js').then(m => m.startMcpServer());
 } else {
+  checkForUpdateInBackground(version);
   program.parse();
 }
