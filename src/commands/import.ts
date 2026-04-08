@@ -311,21 +311,12 @@ export function registerImportCommand(program: Command): void {
               properties,
             };
             
-            // Add content if requested — chunk at 100 blocks (Notion API limit per request)
-            const contentBlocks = (options.content && body.trim()) ? markdownToBlocks(body) : [];
-
-            // First 100 blocks can be included in the create request
-            if (contentBlocks.length > 0) {
-              pageData.children = contentBlocks.slice(0, 100);
+            // Add content via native markdown param (no chunking needed)
+            if (options.content && body.trim()) {
+              pageData.markdown = body;
             }
 
-            const createdPage = await client.post('pages', pageData) as { id: string };
-
-            // Append remaining blocks in chunks of 100
-            for (let i = 100; i < contentBlocks.length; i += 100) {
-              const chunk = contentBlocks.slice(i, i + 100);
-              await client.patch(`blocks/${createdPage.id}/children`, { children: chunk });
-            }
+            await client.post('pages', pageData);
             imported++;
             process.stdout.write(`\r📥 Imported ${imported}/${files.length}...`);
           } catch (error) {

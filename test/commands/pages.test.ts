@@ -260,13 +260,7 @@ describe('Pages Command', () => {
             title: [{ text: { content: 'New Page' } }],
           },
         },
-        children: [{
-          object: 'block',
-          type: 'paragraph',
-          paragraph: {
-            rich_text: [{ type: 'text', text: { content: 'This is the initial content' } }],
-          },
-        }],
+        markdown: 'This is the initial content',
       });
     });
 
@@ -725,17 +719,7 @@ describe('Pages Command', () => {
     it('should replace content with --replace', async () => {
       mockFS.set('test.md', 'New content');
 
-      // First: fetch existing blocks to delete
-      mockClient.get.mockResolvedValueOnce({
-        results: [
-          { id: 'old-block-1', type: 'paragraph', has_children: false },
-          { id: 'old-block-2', type: 'paragraph', has_children: false },
-        ],
-        has_more: false,
-      });
-
-      mockClient.delete.mockResolvedValue({});
-      mockClient.patch.mockResolvedValue({ results: [] });
+      mockClient.patch.mockResolvedValue({});
 
       await program.parseAsync([
         'node', 'test', 'page', 'write', 'page-123',
@@ -743,16 +727,14 @@ describe('Pages Command', () => {
         '--replace',
       ]);
 
-      // Should have deleted old blocks
-      expect(mockClient.delete).toHaveBeenCalledWith('blocks/old-block-1');
-      expect(mockClient.delete).toHaveBeenCalledWith('blocks/old-block-2');
-
-      // Should have appended new blocks
-      expect(mockClient.patch).toHaveBeenCalledWith('blocks/page-123/children', {
-        children: expect.arrayContaining([
-          expect.objectContaining({ type: 'paragraph' }),
-        ]),
+      // Should use native markdown API to replace content
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123/markdown', {
+        type: 'replace_content',
+        replace_content: { new_str: 'New content' },
       });
+
+      // Should NOT delete individual blocks
+      expect(mockClient.delete).not.toHaveBeenCalled();
     });
 
     it('should show dry run without making changes', async () => {
