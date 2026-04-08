@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { markdownToBlocks } from '../utils/markdown.js';
 import { getDatabaseSchema } from '../utils/database-resolver.js';
+import { replacePageMarkdown } from '../utils/notion-helpers.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { Database, PropertySchema } from '../types/notion.js';
@@ -472,55 +473,31 @@ export function registerImportCommand(program: Command): void {
     .action(withErrorHandler(async (filePath: string, options) => {
         const client = getClient();
 
-        // Read file
         const content = fs.readFileSync(filePath, 'utf-8');
         const { body } = parseFrontMatter(content);
-        
-        // Convert to blocks
-        const blocks = markdownToBlocks(body);
-        
-        console.log(`Parsed ${blocks.length} blocks from ${path.basename(filePath)}`);
-        
+
         if (options.dryRun) {
-          console.log('\nBlocks to create:');
-          blocks.slice(0, 10).forEach((block, i) => {
-            const type = block.type as string;
-            console.log(`  ${i + 1}. ${type}`);
-          });
-          if (blocks.length > 10) {
-            console.log(`  ... and ${blocks.length - 10} more`);
-          }
-          console.log('\n🔍 Dry run - no changes made');
+          console.log(`Would import ${body.length} characters from ${path.basename(filePath)}`);
+          console.log('\nDry run - no changes made');
           return;
         }
-        
-        // Delete existing blocks if replace mode
+
         if (options.replace) {
-          console.log('Removing existing content...');
-          const existing = await client.get(`blocks/${options.to}/children`) as {
-            results: { id: string }[];
-          };
-          
-          for (const block of existing.results) {
-            await client.delete(`blocks/${block.id}`);
-          }
+          await replacePageMarkdown(client, options.to, body);
+          console.log(`\n✅ Replaced page content with ${path.basename(filePath)}`);
+          return;
         }
-        
-        // Append blocks (Notion has a limit of 100 per request)
-        const chunks = [];
-        for (let i = 0; i < blocks.length; i += 100) {
-          chunks.push(blocks.slice(i, i + 100));
-        }
-        
+
+        // Append mode: convert to blocks (no native markdown append API)
+        const blocks = markdownToBlocks(body);
         let added = 0;
-        for (const chunk of chunks) {
-          await client.patch(`blocks/${options.to}/children`, {
-            children: chunk,
-          });
+        for (let i = 0; i < blocks.length; i += 100) {
+          const chunk = blocks.slice(i, i + 100);
+          await client.patch(`blocks/${options.to}/children`, { children: chunk });
           added += chunk.length;
           process.stdout.write(`\r📥 Added ${added}/${blocks.length} blocks...`);
         }
-        
+
         console.log(`\n\n✅ Imported ${blocks.length} blocks to page`);
     }));
 }

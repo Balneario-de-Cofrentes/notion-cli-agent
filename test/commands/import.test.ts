@@ -103,18 +103,17 @@ console.log("code");
 
     it('should replace existing content with --replace flag', async () => {
       mockFS.set('/tmp/test.md', markdownContent);
-      mockClient.get.mockResolvedValue({
-        results: [{ id: 'block-1' }, { id: 'block-2' }],
-      });
-      mockClient.delete.mockResolvedValue({});
-      mockClient.patch.mockResolvedValue({ results: [] });
+      mockClient.patch.mockResolvedValue({});
 
       await program.parseAsync(['node', 'test', 'import', 'markdown', '/tmp/test.md', '--to', 'page-123', '--replace']);
 
-      expect(mockClient.get).toHaveBeenCalledWith('blocks/page-123/children');
-      expect(mockClient.delete).toHaveBeenCalledWith('blocks/block-1');
-      expect(mockClient.delete).toHaveBeenCalledWith('blocks/block-2');
-      expect(mockClient.patch).toHaveBeenCalled();
+      // Should use native markdown replace API
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123/markdown', {
+        type: 'replace_content',
+        replace_content: { new_str: expect.any(String) },
+      });
+      // Should NOT delete individual blocks
+      expect(mockClient.delete).not.toHaveBeenCalled();
     });
 
     it('should chunk large imports into batches of 100', async () => {

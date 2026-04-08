@@ -351,7 +351,7 @@ export function registerPagesCommand(program: Command): void {
     .description('Write Markdown content to a page (from file or stdin)')
     .option('-f, --file <path>', 'Read Markdown from file')
     .option('--replace', 'Replace all page content (uses native markdown API). Default is append')
-    .option('--blocks', 'Use block-by-block writing instead of native markdown API')
+    .option('--blocks', 'Force block-by-block replace (only with --replace)')
     .option('--dry-run', 'Show what would be written without making changes')
     .action(withErrorHandler(async (pageId: string, options) => {
       const client = getClient();
@@ -413,12 +413,17 @@ export function registerPagesCommand(program: Command): void {
 
         // Append blocks in chunks of 100 (Notion API limit)
         let added = 0;
-        for (let i = 0; i < blocks.length; i += 100) {
-          const chunk = blocks.slice(i, i + 100);
-          await client.patch(`blocks/${pageId}/children`, {
-            children: chunk,
-          });
-          added += chunk.length;
+        try {
+          for (let i = 0; i < blocks.length; i += 100) {
+            const chunk = blocks.slice(i, i + 100);
+            await client.patch(`blocks/${pageId}/children`, {
+              children: chunk,
+            });
+            added += chunk.length;
+          }
+        } catch (writeError) {
+          console.error(`Error writing blocks (${added}/${blocks.length} written): ${(writeError as Error).message}`);
+          process.exit(1);
         }
 
         console.error(`Written ${added} blocks to page`);
