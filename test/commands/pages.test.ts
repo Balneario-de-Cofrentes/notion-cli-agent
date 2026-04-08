@@ -620,16 +620,19 @@ describe('Pages Command', () => {
     it('should read page content as markdown to stdout', async () => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-      // Native markdown API returns full content in one call
-      mockClient.get.mockResolvedValueOnce({
-        object: 'page_markdown',
-        markdown: '# Test Page\n\nThis is a test paragraph.\n\n# Test Heading\n',
-        truncated: false,
-      });
+      // Call order: getPageMarkdown first, then page fetch for title
+      mockClient.get
+        .mockResolvedValueOnce({
+          object: 'page_markdown',
+          markdown: 'This is a test paragraph.\n\n# Test Heading\n',
+          truncated: false,
+        })
+        .mockResolvedValueOnce(mockPage); // pages/{id} for title
 
       await program.parseAsync(['node', 'test', 'page', 'read', 'page-123']);
 
       expect(mockClient.get).toHaveBeenCalledWith('pages/page-123/markdown');
+      expect(mockClient.get).toHaveBeenCalledWith('pages/page-123');
 
       const output = stdoutSpy.mock.calls.map(c => c[0]).join('');
       expect(output).toContain('# Test Page');
@@ -642,13 +645,16 @@ describe('Pages Command', () => {
     it('should omit title with --no-title', async () => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
+      // With --no-title, only the markdown endpoint is called (no page fetch)
       mockClient.get.mockResolvedValueOnce({
         object: 'page_markdown',
-        markdown: '# Test Page\n\nThis is a test paragraph.\n',
+        markdown: 'This is a test paragraph.\n',
         truncated: false,
       });
 
       await program.parseAsync(['node', 'test', 'page', 'read', 'page-123', '--no-title']);
+
+      expect(mockClient.get).not.toHaveBeenCalledWith('pages/page-123');
 
       const output = stdoutSpy.mock.calls.map(c => c[0]).join('');
       expect(output).not.toContain('# Test Page');

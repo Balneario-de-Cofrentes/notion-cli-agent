@@ -325,11 +325,17 @@ export function registerPagesCommand(program: Command): void {
       } else {
         // Native markdown API (single call, better fidelity)
         const { markdown, truncated } = await getPageMarkdown(client, pageId);
-        output = markdown;
 
-        if (options.title === false) {
-          // Strip leading title heading if present
-          output = output.replace(/^# [^\n]*\n\n?/, '');
+        // The native API returns page body only (no title). Prepend it.
+        if (options.title !== false) {
+          const page = await client.get(`pages/${pageId}`) as Page;
+          output = `# ${getPageTitle(page)}\n\n`;
+        }
+        output += markdown;
+
+        // Ensure trailing newline
+        if (output.length > 0 && !output.endsWith('\n')) {
+          output += '\n';
         }
 
         if (truncated) {
