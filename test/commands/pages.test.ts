@@ -620,16 +620,17 @@ describe('Pages Command', () => {
     it('should read page content as markdown to stdout', async () => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-      // First call: get page for title, second call: get blocks
-      mockClient.get
-        .mockResolvedValueOnce(mockPage) // pages/{id}
-        .mockResolvedValueOnce(mockBlockChildren); // blocks/{id}/children
+      // Native markdown API returns full content in one call
+      mockClient.get.mockResolvedValueOnce({
+        object: 'page_markdown',
+        markdown: '# Test Page\n\nThis is a test paragraph.\n\n# Test Heading\n',
+        truncated: false,
+      });
 
       await program.parseAsync(['node', 'test', 'page', 'read', 'page-123']);
 
-      expect(mockClient.get).toHaveBeenCalledWith('pages/page-123');
+      expect(mockClient.get).toHaveBeenCalledWith('pages/page-123/markdown');
 
-      // Should output markdown via stdout.write
       const output = stdoutSpy.mock.calls.map(c => c[0]).join('');
       expect(output).toContain('# Test Page');
       expect(output).toContain('This is a test paragraph.');
@@ -641,15 +642,34 @@ describe('Pages Command', () => {
     it('should omit title with --no-title', async () => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-      mockClient.get.mockResolvedValueOnce(mockBlockChildren); // blocks/{id}/children
+      mockClient.get.mockResolvedValueOnce({
+        object: 'page_markdown',
+        markdown: '# Test Page\n\nThis is a test paragraph.\n',
+        truncated: false,
+      });
 
       await program.parseAsync(['node', 'test', 'page', 'read', 'page-123', '--no-title']);
 
-      // Should NOT have fetched the page (no title needed)
-      expect(mockClient.get).not.toHaveBeenCalledWith('pages/page-123');
-
       const output = stdoutSpy.mock.calls.map(c => c[0]).join('');
       expect(output).not.toContain('# Test Page');
+      expect(output).toContain('This is a test paragraph.');
+
+      stdoutSpy.mockRestore();
+    });
+
+    it('should use legacy block fetching with --blocks', async () => {
+      const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      mockClient.get
+        .mockResolvedValueOnce(mockPage) // pages/{id} for title
+        .mockResolvedValueOnce(mockBlockChildren); // blocks/{id}/children
+
+      await program.parseAsync(['node', 'test', 'page', 'read', 'page-123', '--blocks']);
+
+      expect(mockClient.get).toHaveBeenCalledWith('pages/page-123');
+
+      const output = stdoutSpy.mock.calls.map(c => c[0]).join('');
+      expect(output).toContain('# Test Page');
       expect(output).toContain('This is a test paragraph.');
 
       stdoutSpy.mockRestore();

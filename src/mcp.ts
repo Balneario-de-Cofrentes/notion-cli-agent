@@ -13,7 +13,7 @@ import { createMcpServer } from 'mcp-stdio';
 import { initClient, getClient } from './client.js';
 import { getDatabaseSchema, queryDatabase } from './utils/database-resolver.js';
 import { resolveDatabaseInput, isNotionUUID } from './utils/workspace-resolver.js';
-import { getPageTitle, getDbTitle, fetchAllBlocks, buildTrashPayload } from './utils/notion-helpers.js';
+import { getPageTitle, getDbTitle, fetchAllBlocks, getPageMarkdown, buildTrashPayload } from './utils/notion-helpers.js';
 import type { Page, PaginatedResponse, Database } from './types/notion.js';
 
 const require = createRequire(import.meta.url);
@@ -100,19 +100,24 @@ export async function startMcpServer(): Promise<void> {
       // --- Pages --------------------------------------------------------
 
       page_get: {
-        description: 'Get a page by ID with properties and optional content',
+        description: 'Get a page by ID with properties and optional content (as blocks or markdown)',
         parameters: {
           type: 'object',
           properties: {
             page_id: { type: 'string', description: 'Page ID' },
-            content: { type: 'boolean', description: 'Include block content' },
+            content: { type: 'boolean', description: 'Include block content as JSON' },
+            markdown: { type: 'boolean', description: 'Return page content as markdown (more token-efficient)' },
           },
           required: ['page_id'],
         },
         handler: async (params) => {
           const page = await client.get(`pages/${params.page_id}`) as Page;
           const result: Record<string, unknown> = { ...page };
-          if (params.content) {
+          if (params.markdown) {
+            const md = await getPageMarkdown(client, params.page_id as string);
+            result.markdown = md.markdown;
+            if (md.truncated) result.truncated = true;
+          } else if (params.content) {
             result.blocks = await fetchAllBlocks(client, params.page_id as string);
           }
           return JSON.stringify(result);

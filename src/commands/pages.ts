@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { getClient } from '../client.js';
 import { formatOutput, formatPageTitle, parseProperties } from '../utils/format.js';
 import { markdownToBlocks } from '../utils/markdown.js';
-import { blocksToMarkdownAsync, fetchAllBlocks, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
+import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
 import { getDatabaseSchema } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import type { Page } from '../types/notion.js';
@@ -295,13 +295,13 @@ export function registerPagesCommand(program: Command): void {
     .command('read <page_id>')
     .description('Read page content as Markdown (outputs to stdout)')
     .option('-j, --json', 'Output raw JSON blocks instead of Markdown')
+    .option('--blocks', 'Use block-by-block fetching instead of native markdown API')
     .option('--no-title', 'Omit the page title heading')
     .option('-o, --output <path>', 'Write to file instead of stdout')
     .action(withErrorHandler(async (pageId: string, options) => {
       const client = getClient();
 
       if (options.json) {
-        // Raw JSON mode — return all blocks
         const blocks = await fetchAllBlocks(client, pageId);
         const output = formatOutput(blocks);
         if (options.output) {
@@ -315,16 +315,27 @@ export function registerPagesCommand(program: Command): void {
 
       let output = '';
 
-      // Include title by default
-      if (options.title !== false) {
-        const page = await client.get(`pages/${pageId}`) as Page;
-        const title = getPageTitle(page);
-        output += `# ${title}\n\n`;
-      }
+      if (options.blocks) {
+        // Legacy: fetch blocks recursively and convert client-side
+        if (options.title !== false) {
+          const page = await client.get(`pages/${pageId}`) as Page;
+          output += `# ${getPageTitle(page)}\n\n`;
+        }
+        output += await blocksToMarkdownAsync(client, pageId);
+      } else {
+        // Native markdown API (single call, better fidelity)
+        const { markdown, truncated } = await getPageMarkdown(client, pageId);
+        output = markdown;
 
-      // Convert blocks to markdown
-      const content = await blocksToMarkdownAsync(client, pageId);
-      output += content;
+        if (options.title === false) {
+          // Strip leading title heading if present
+          output = output.replace(/^# [^\n]*\n\n?/, '');
+        }
+
+        if (truncated) {
+          process.stderr.write('Warning: page content was truncated (very large page).\n');
+        }
+      }
 
       if (options.output) {
         fs.writeFileSync(options.output, output);
