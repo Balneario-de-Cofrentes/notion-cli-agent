@@ -239,9 +239,10 @@ notion search "bugs" --ids-only | wc -l
 Read, write, and surgically edit page content as Markdown.
 
 ```bash
-# Read page content as Markdown
+# Read page content as Markdown (uses native Notion markdown API)
 notion page read <page_id>
-notion page read <page_id> --json          # Raw block output
+notion page read <page_id> --blocks        # Legacy: fetch blocks and convert client-side
+notion page read <page_id> --json          # Raw block JSON output
 notion page read <page_id> -o page.md      # Write to file
 
 # Write Markdown content into a page

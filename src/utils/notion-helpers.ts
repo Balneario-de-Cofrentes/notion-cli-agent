@@ -86,6 +86,25 @@ export async function blocksToMarkdownAsync(
   return markdown;
 }
 
+// ─── Native Markdown API ────────────────────────────────────────────────────
+
+/**
+ * Fetch page content as markdown via the native Notion API endpoint.
+ * Single API call, returns enhanced markdown with Notion-flavored XML tags.
+ * Requires API version 2026-03-11+.
+ */
+export async function getPageMarkdown(
+  client: ReturnType<typeof getClient>,
+  pageId: string,
+): Promise<{ markdown: string; truncated: boolean }> {
+  const result = await client.get(`pages/${pageId}/markdown`) as {
+    markdown: string;
+    truncated: boolean;
+    unknown_block_ids?: string[];
+  };
+  return { markdown: result.markdown, truncated: result.truncated };
+}
+
 // ─── Title Extraction ───────────────────────────────────────────────────────
 
 /**

@@ -74,7 +74,8 @@ notion find "high priority" -d <db_id> --explain           # preview filter, don
 notion page get <page_id>                       # properties
 notion page get <page_id> --content             # + content blocks
 notion page get <page_id> --json                # raw JSON
-notion page read <page_id>                      # content as Markdown
+notion page read <page_id>                      # content as Markdown (native API, 1 call)
+notion page read <page_id> --blocks             # legacy block-by-block conversion
 notion page read <page_id> -o page.md           # save to file
 notion ai summarize <page_id>                   # concise summary
 notion ai extract <page_id> --schema "email,phone,date"
