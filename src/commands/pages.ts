@@ -463,133 +463,133 @@ export function registerPagesCommand(program: Command): void {
         return;
       }
 
-        // Fetch all current blocks
-        const allBlocks = await fetchAllBlocks(client, pageId);
+      // Fetch all current blocks
+      const allBlocks = await fetchAllBlocks(client, pageId);
 
-        // Resolve position
-        let afterBlockId: string | undefined;
-        let deleteStartIndex: number;
+      // Resolve position
+      let afterBlockId: string | undefined;
+      let deleteStartIndex: number;
 
-        if (options.after) {
-          // Find the block index for --after
-          const idx = allBlocks.findIndex(b => b.id === options.after || b.id.replace(/-/g, '') === options.after.replace(/-/g, ''));
-          if (idx === -1) {
-            console.error(`Error: Block not found: ${options.after}`);
-            console.error(`Available blocks (${allBlocks.length}):`);
-            allBlocks.slice(0, 10).forEach((b, i) => {
-              console.error(`  ${i}: ${b.id} (${b.type})`);
-            });
-            process.exit(1);
-          }
-          afterBlockId = allBlocks[idx].id;
-          deleteStartIndex = idx + 1;
-        } else if (options.at !== undefined) {
-          const atIndex = parseInt(options.at, 10);
-          if (atIndex < 0 || atIndex > allBlocks.length) {
-            console.error(`Error: Index ${atIndex} out of range (0-${allBlocks.length})`);
-            process.exit(1);
-          }
-          if (atIndex > 0) {
-            afterBlockId = allBlocks[atIndex - 1].id;
-          }
-          deleteStartIndex = atIndex;
-        } else {
-          console.error('Error: Specify a position with --after <block_id> or --at <index>');
+      if (options.after) {
+        // Find the block index for --after
+        const idx = allBlocks.findIndex(b => b.id === options.after || b.id.replace(/-/g, '') === options.after.replace(/-/g, ''));
+        if (idx === -1) {
+          console.error(`Error: Block not found: ${options.after}`);
+          console.error(`Available blocks (${allBlocks.length}):`);
+          allBlocks.slice(0, 10).forEach((b, i) => {
+            console.error(`  ${i}: ${b.id} (${b.type})`);
+          });
           process.exit(1);
-          return;
         }
-
-        // Determine blocks to delete
-        const deleteCount = options.delete || 0;
-        const blocksToDelete = allBlocks.slice(deleteStartIndex, deleteStartIndex + deleteCount);
-
-        // Parse replacement content
-        let newBlocks: { object: string; type: string; [key: string]: unknown }[] = [];
-        if (options.file) {
-          if (!fs.existsSync(options.file)) {
-            console.error(`Error: File not found: ${options.file}`);
-            process.exit(1);
-          }
-          const md = fs.readFileSync(options.file, 'utf-8');
-          newBlocks = markdownToBlocks(md);
-        } else if (options.markdown) {
-          newBlocks = markdownToBlocks(options.markdown);
+        afterBlockId = allBlocks[idx].id;
+        deleteStartIndex = idx + 1;
+      } else if (options.at !== undefined) {
+        const atIndex = parseInt(options.at, 10);
+        if (atIndex < 0 || atIndex > allBlocks.length) {
+          console.error(`Error: Index ${atIndex} out of range (0-${allBlocks.length})`);
+          process.exit(1);
         }
-
-        // Dry run
-        if (options.dryRun) {
-          console.log('Edit plan:');
-          if (blocksToDelete.length > 0) {
-            console.log(`  Delete ${blocksToDelete.length} block(s):`);
-            blocksToDelete.forEach((b, i) => {
-              console.log(`    ${deleteStartIndex + i}: ${b.id} (${b.type})`);
-            });
-          }
-          if (newBlocks.length > 0) {
-            console.log(`  Insert ${newBlocks.length} block(s)${afterBlockId ? ` after ${afterBlockId}` : ' at start'}:`);
-            newBlocks.slice(0, 10).forEach((b, i) => {
-              console.log(`    ${i}: ${b.type}`);
-            });
-            if (newBlocks.length > 10) {
-              console.log(`    ... and ${newBlocks.length - 10} more`);
-            }
-          }
-          if (blocksToDelete.length === 0 && newBlocks.length === 0) {
-            console.log('  No changes to make');
-          }
-          console.log('\nDry run - no changes made');
-          return;
+        if (atIndex > 0) {
+          afterBlockId = allBlocks[atIndex - 1].id;
         }
+        deleteStartIndex = atIndex;
+      } else {
+        console.error('Error: Specify a position with --after <block_id> or --at <index>');
+        process.exit(1);
+        return;
+      }
 
-        // Nothing to do — warn and exit
-        if (blocksToDelete.length === 0 && newBlocks.length === 0) {
-          console.error('Warning: nothing to do — specify --delete and/or --file/--markdown');
-          return;
+      // Determine blocks to delete
+      const deleteCount = options.delete || 0;
+      const blocksToDelete = allBlocks.slice(deleteStartIndex, deleteStartIndex + deleteCount);
+
+      // Parse replacement content
+      let newBlocks: { object: string; type: string; [key: string]: unknown }[] = [];
+      if (options.file) {
+        if (!fs.existsSync(options.file)) {
+          console.error(`Error: File not found: ${options.file}`);
+          process.exit(1);
         }
+        const md = fs.readFileSync(options.file, 'utf-8');
+        newBlocks = markdownToBlocks(md);
+      } else if (options.markdown) {
+        newBlocks = markdownToBlocks(options.markdown);
+      }
 
-        // Execute: delete blocks (not atomic — partial failure leaves page in intermediate state)
+      // Dry run
+      if (options.dryRun) {
+        console.log('Edit plan:');
         if (blocksToDelete.length > 0) {
-          console.error(
-            `Deleting ${blocksToDelete.length} block(s)... ` +
-            `(note: not atomic — partial failure will leave the page in an intermediate state)`
-          );
+          console.log(`  Delete ${blocksToDelete.length} block(s):`);
+          blocksToDelete.forEach((b, i) => {
+            console.log(`    ${deleteStartIndex + i}: ${b.id} (${b.type})`);
+          });
         }
-        for (const block of blocksToDelete) {
-          await client.delete(`blocks/${block.id}`);
-        }
-
-        // Execute: insert new blocks
         if (newBlocks.length > 0) {
-          // Insert in chunks of 100
-          for (let i = 0; i < newBlocks.length; i += 100) {
-            const chunk = newBlocks.slice(i, i + 100);
-            const body: Record<string, unknown> = {
-              children: chunk,
-              ...buildBlockPosition(afterBlockId),
-            };
-            const result = await client.patch(`blocks/${pageId}/children`, body) as {
-              results: { id: string }[];
-            };
-            // Update afterBlockId to the last inserted block for the next chunk
-            if (result.results && result.results.length > 0) {
-              afterBlockId = result.results[result.results.length - 1].id;
-            }
+          console.log(`  Insert ${newBlocks.length} block(s)${afterBlockId ? ` after ${afterBlockId}` : ' at start'}:`);
+          newBlocks.slice(0, 10).forEach((b, i) => {
+            console.log(`    ${i}: ${b.type}`);
+          });
+          if (newBlocks.length > 10) {
+            console.log(`    ... and ${newBlocks.length - 10} more`);
           }
         }
-
-        const summary = [];
-        if (blocksToDelete.length > 0) summary.push(`deleted ${blocksToDelete.length}`);
-        if (newBlocks.length > 0) summary.push(`inserted ${newBlocks.length}`);
-
-        if (options.json) {
-          console.log(formatOutput({
-            deleted: blocksToDelete.length,
-            inserted: newBlocks.length,
-            deleted_ids: blocksToDelete.map(b => b.id),
-          }));
-        } else {
-          console.log(`Done: ${summary.join(', ')} block(s)`);
+        if (blocksToDelete.length === 0 && newBlocks.length === 0) {
+          console.log('  No changes to make');
         }
+        console.log('\nDry run - no changes made');
+        return;
+      }
+
+      // Nothing to do — warn and exit
+      if (blocksToDelete.length === 0 && newBlocks.length === 0) {
+        console.error('Warning: nothing to do — specify --delete and/or --file/--markdown');
+        return;
+      }
+
+      // Execute: delete blocks (not atomic — partial failure leaves page in intermediate state)
+      if (blocksToDelete.length > 0) {
+        console.error(
+          `Deleting ${blocksToDelete.length} block(s)... ` +
+          `(note: not atomic — partial failure will leave the page in an intermediate state)`
+        );
+      }
+      for (const block of blocksToDelete) {
+        await client.delete(`blocks/${block.id}`);
+      }
+
+      // Execute: insert new blocks
+      if (newBlocks.length > 0) {
+        // Insert in chunks of 100
+        for (let i = 0; i < newBlocks.length; i += 100) {
+          const chunk = newBlocks.slice(i, i + 100);
+          const body: Record<string, unknown> = {
+            children: chunk,
+            ...buildBlockPosition(afterBlockId),
+          };
+          const result = await client.patch(`blocks/${pageId}/children`, body) as {
+            results: { id: string }[];
+          };
+          // Update afterBlockId to the last inserted block for the next chunk
+          if (result.results && result.results.length > 0) {
+            afterBlockId = result.results[result.results.length - 1].id;
+          }
+        }
+      }
+
+      const summary = [];
+      if (blocksToDelete.length > 0) summary.push(`deleted ${blocksToDelete.length}`);
+      if (newBlocks.length > 0) summary.push(`inserted ${newBlocks.length}`);
+
+      if (options.json) {
+        console.log(formatOutput({
+          deleted: blocksToDelete.length,
+          inserted: newBlocks.length,
+          deleted_ids: blocksToDelete.map(b => b.id),
+        }));
+      } else {
+        console.log(`Done: ${summary.join(', ')} block(s)`);
+      }
     }));
 }
 

@@ -793,6 +793,69 @@ describe('Pages Command', () => {
       has_more: false,
     };
 
+    describe('search-and-replace mode (--find)', () => {
+      it('should call updatePageMarkdown with find and replace text', async () => {
+        mockClient.patch.mockResolvedValue({});
+
+        await program.parseAsync([
+          'node', 'test', 'page', 'edit', 'page-123',
+          '--find', 'DRAFT',
+          '--replace-text', 'FINAL',
+        ]);
+
+        expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123/markdown', {
+          type: 'update_content',
+          update_content: {
+            content_updates: [{ old_str: 'DRAFT', new_str: 'FINAL' }],
+          },
+        });
+        expect(mockClient.get).not.toHaveBeenCalled();
+      });
+
+      it('should pass replace_all_matches when --replace-all is set', async () => {
+        mockClient.patch.mockResolvedValue({});
+
+        await program.parseAsync([
+          'node', 'test', 'page', 'edit', 'page-123',
+          '--find', 'foo',
+          '--replace-text', 'bar',
+          '--replace-all',
+        ]);
+
+        expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123/markdown', {
+          type: 'update_content',
+          update_content: {
+            content_updates: [{ old_str: 'foo', new_str: 'bar', replace_all_matches: true }],
+          },
+        });
+      });
+
+      it('should show dry run without making API call', async () => {
+        await program.parseAsync([
+          'node', 'test', 'page', 'edit', 'page-123',
+          '--find', 'DRAFT',
+          '--replace-text', 'FINAL',
+          '--dry-run',
+        ]);
+
+        expect(mockClient.patch).not.toHaveBeenCalled();
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Would replace'));
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Dry run'));
+      });
+
+      it('should error when --find is used without --replace-text', async () => {
+        await expect(
+          program.parseAsync([
+            'node', 'test', 'page', 'edit', 'page-123',
+            '--find', 'DRAFT',
+          ])
+        ).rejects.toThrow('process.exit(1)');
+
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--replace-text is required'));
+        expect(mockClient.patch).not.toHaveBeenCalled();
+      });
+    });
+
     it('should delete blocks after a given block', async () => {
       mockClient.get.mockResolvedValueOnce(existingBlocks);
       mockClient.delete.mockResolvedValue({});

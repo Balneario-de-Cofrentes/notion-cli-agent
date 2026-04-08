@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-04-08
+
+### Added
+
+- **`page edit --find/--replace-text`** — search-and-replace within a page via native markdown API. Single PATCH call, no block position calculations. `--replace-all` replaces all occurrences. (#52)
+- **`comment create --markdown`** — create comments with markdown formatting (`**bold**`, `[links](url)`, etc.). MCP `comment_create` also accepts `markdown` boolean param. (#54)
+
+### Changed
+
+- **`export page` and `export database --content`** — use native markdown API (`GET /pages/:id/markdown`) instead of recursive block fetching. Eliminates `blocksToMarkdownAsync` for exports. (#53)
+- **`backup --format markdown`** — uses native markdown API per page; `--content` flag required (same as JSON format). Eliminates `fetchBlocksRecursive` + `blocksToMarkdownSync` for markdown backups. (#53)
+
+## [0.18.0] - 2026-04-08
+
+### Changed
+
+- **`page write --replace`** — uses native markdown replace API (`PATCH /pages/:id/markdown`) instead of fetching all blocks, deleting individually, and re-inserting. Single API call. (#56)
+- **`page create --markdown`** — passes `markdown` field directly in the create body instead of converting to blocks client-side. (#56)
+- **`import markdown --replace`** — uses native markdown replace API instead of block-level delete + append. (#56)
+- **`import obsidian --content`** — passes markdown body directly via `markdown` field in page create, no chunked block appends. (#56)
+
 ## [0.17.0] - 2026-04-08
 
 ### Changed
