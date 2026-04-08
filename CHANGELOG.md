@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-04-08
+
+### Changed
+
+- **`page read` uses native Notion markdown API** — single API call instead of recursive block fetching + client-side conversion. Better fidelity (columns, synced blocks, callouts, meeting notes). `--blocks` flag for legacy behavior. (#50)
+- **MCP `page_get` tool** — new `markdown: true` parameter for token-efficient page content retrieval.
+
 ## [0.16.0] - 2026-04-07
 
 ### Added
