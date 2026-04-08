@@ -88,6 +88,7 @@ export function registerCommentsCommand(program: Command): void {
     .option('--page <page_id>', 'Page ID to comment on (starts new discussion)')
     .option('--discussion <discussion_id>', 'Discussion ID to reply to')
     .requiredOption('-t, --text <text>', 'Comment text')
+    .option('-m, --markdown', 'Treat text as markdown (supports **bold**, [links](url), etc.)')
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (options) => {
       if (!options.page && !options.discussion) {
@@ -97,9 +98,13 @@ export function registerCommentsCommand(program: Command): void {
 
       const client = getClient();
 
-      const body: Record<string, unknown> = {
-        rich_text: [{ type: 'text', text: { content: options.text } }],
-      };
+      const body: Record<string, unknown> = {};
+
+      if (options.markdown) {
+        body.markdown = options.text;
+      } else {
+        body.rich_text = [{ type: 'text', text: { content: options.text } }];
+      }
 
       if (options.page) {
         body.parent = { page_id: options.page };

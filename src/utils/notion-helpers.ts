@@ -120,6 +120,25 @@ export async function replacePageMarkdown(
   });
 }
 
+/**
+ * Search-and-replace within a page's markdown content.
+ * Uses the update_content command for surgical edits without replacing the full page.
+ */
+export async function updatePageMarkdown(
+  client: ReturnType<typeof getClient>,
+  pageId: string,
+  oldStr: string,
+  newStr: string,
+  replaceAll = false,
+): Promise<void> {
+  await client.patch(`pages/${pageId}/markdown`, {
+    type: 'update_content',
+    update_content: {
+      content_updates: [{ old_str: oldStr, new_str: newStr, ...(replaceAll ? { replace_all_matches: true } : {}) }],
+    },
+  });
+}
+
 // ─── Title Extraction ───────────────────────────────────────────────────────
 
 /**
