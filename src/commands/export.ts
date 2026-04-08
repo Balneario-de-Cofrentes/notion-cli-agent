@@ -9,7 +9,7 @@ import {
   richTextToMarkdown,
 } from '../utils/markdown.js';
 import { queryAllPages } from '../utils/database-resolver.js';
-import { blocksToMarkdownAsync, getPropertyRawValue } from '../utils/notion-helpers.js';
+import { getPageMarkdown, getPropertyRawValue } from '../utils/notion-helpers.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import { resolveDatabaseInput } from '../utils/workspace-resolver.js';
 import type { RichText, Page } from '../types/notion.js';
@@ -118,10 +118,10 @@ export function registerExportCommand(program: Command): void {
       // Add title
       output += `# ${title}\n\n`;
 
-      // Add content
+      // Add content via native markdown API
       if (options.content !== false) {
-        const content = await blocksToMarkdownAsync(client, pageId);
-        output += content;
+        const { markdown } = await getPageMarkdown(client, pageId);
+        output += markdown;
       }
 
       // Output
@@ -176,7 +176,7 @@ export function registerExportCommand(program: Command): void {
 
           if (options.content) {
             try {
-              const pageContent = await blocksToMarkdownAsync(client, page.id);
+              const { markdown: pageContent } = await getPageMarkdown(client, page.id);
               content += pageContent;
             } catch {
               content += `<!-- Failed to fetch content -->\n`;

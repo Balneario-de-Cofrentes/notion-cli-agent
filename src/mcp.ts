@@ -335,20 +335,26 @@ export async function startMcpServer(): Promise<void> {
       // --- Comments -----------------------------------------------------
 
       comment_create: {
-        description: 'Create a comment on a page',
+        description: 'Create a comment on a page (supports markdown formatting)',
         parameters: {
           type: 'object',
           properties: {
             page_id: { type: 'string', description: 'Page ID to comment on' },
-            text: { type: 'string', description: 'Comment text' },
+            text: { type: 'string', description: 'Comment text (plain or markdown)' },
+            markdown: { type: 'boolean', description: 'Treat text as markdown' },
           },
           required: ['page_id', 'text'],
         },
         handler: async (params) => {
-          const comment = await client.post('comments', {
+          const body: Record<string, unknown> = {
             parent: { page_id: params.page_id },
-            rich_text: [{ type: 'text', text: { content: params.text } }],
-          });
+          };
+          if (params.markdown) {
+            body.markdown = params.text;
+          } else {
+            body.rich_text = [{ type: 'text', text: { content: params.text } }];
+          }
+          const comment = await client.post('comments', body);
           return JSON.stringify(comment);
         },
       },

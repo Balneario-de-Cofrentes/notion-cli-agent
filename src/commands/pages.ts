@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { getClient } from '../client.js';
 import { formatOutput, formatPageTitle, parseProperties } from '../utils/format.js';
 import { markdownToBlocks } from '../utils/markdown.js';
-import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, replacePageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
+import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, replacePageMarkdown, updatePageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
 import { getDatabaseSchema } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import type { Page } from '../types/notion.js';
@@ -432,9 +432,12 @@ export function registerPagesCommand(program: Command): void {
   // Surgical page editing
   pages
     .command('edit <page_id>')
-    .description('Surgical block-level editing: delete, insert, or replace blocks at a position')
-    .option('--after <block_id>', 'Position: insert after this block ID')
-    .option('--at <index>', 'Position: operate at this block index (0-based)')
+    .description('Edit page content: search-and-replace via markdown API, or block-level insert/delete')
+    .option('--find <text>', 'Text to find (uses native markdown search-and-replace)')
+    .option('--replace-text <text>', 'Replacement text (use with --find)')
+    .option('--replace-all', 'Replace all occurrences (use with --find)')
+    .option('--after <block_id>', 'Position: insert after this block ID (block-level mode)')
+    .option('--at <index>', 'Position: operate at this block index (block-level mode)')
     .option('--delete <count>', 'Delete <count> blocks starting at position', parseInt)
     .option('-f, --file <path>', 'Read replacement Markdown from file')
     .option('-m, --markdown <text>', 'Replacement Markdown text (inline)')
@@ -442,6 +445,19 @@ export function registerPagesCommand(program: Command): void {
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (pageId: string, options) => {
       const client = getClient();
+
+      // Search-and-replace mode (native markdown API, 1 call)
+      if (options.find) {
+        const newText = options.replaceText ?? '';
+        if (options.dryRun) {
+          console.log(`Would replace "${options.find}" with "${newText}"${options.replaceAll ? ' (all occurrences)' : ''}`);
+          console.log('\nDry run - no changes made');
+          return;
+        }
+        await updatePageMarkdown(client, pageId, options.find, newText, !!options.replaceAll);
+        console.log(`Replaced "${options.find}" with "${newText}"${options.replaceAll ? ' (all occurrences)' : ''}`);
+        return;
+      }
 
         // Fetch all current blocks
         const allBlocks = await fetchAllBlocks(client, pageId);

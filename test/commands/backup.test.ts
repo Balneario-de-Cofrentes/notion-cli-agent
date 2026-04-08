@@ -231,15 +231,19 @@ describe('Backup Command', () => {
 
     it('should include content in markdown format', async () => {
       setupDatabaseResolution(mockClient);
-      mockClient.get.mockResolvedValue(mockBlocks);
+      mockClient.get.mockResolvedValue({
+        object: 'page_markdown',
+        markdown: 'Backup content here.\n',
+        truncated: false,
+      });
       mockClient.post.mockResolvedValue(createPaginatedResult([mockPage]));
 
-      await program.parseAsync(['node', 'test', 'backup', 'db-123', '--output', '/backup', '--content', '--format', 'markdown']);
+      await program.parseAsync(['node', 'test', 'backup', 'db-123', '--output', '/backup', '--format', 'markdown']);
 
       const mdFiles = Array.from(mockFS.keys()).filter(k => k.startsWith('/backup/pages/') && k.endsWith('.md'));
+      expect(mdFiles.length).toBe(1);
       const mdContent = mockFS.get(mdFiles[0]) || '';
-      expect(mdContent).toContain('# Title');
-      expect(mdContent).toContain('Content');
+      expect(mdContent).toContain('Backup content here.');
     });
   });
 
