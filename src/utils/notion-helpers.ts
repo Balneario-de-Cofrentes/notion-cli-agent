@@ -105,6 +105,21 @@ export async function getPageMarkdown(
   return { markdown: result.markdown, truncated: result.truncated };
 }
 
+/**
+ * Replace all content of a page with markdown via the native API.
+ * Single API call, replaces the entire page body.
+ */
+export async function replacePageMarkdown(
+  client: ReturnType<typeof getClient>,
+  pageId: string,
+  markdown: string,
+): Promise<void> {
+  await client.patch(`pages/${pageId}/markdown`, {
+    type: 'replace_content',
+    replace_content: { new_str: markdown },
+  });
+}
+
 // ─── Title Extraction ───────────────────────────────────────────────────────
 
 /**

@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { getClient } from '../client.js';
 import { formatOutput, formatPageTitle, parseProperties } from '../utils/format.js';
 import { markdownToBlocks } from '../utils/markdown.js';
-import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
+import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, replacePageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
 import { getDatabaseSchema } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import type { Page } from '../types/notion.js';
@@ -125,15 +125,9 @@ export function registerPagesCommand(program: Command): void {
           body.icon = { type: 'emoji', emoji: options.icon };
         }
 
-        // Add initial content if provided
+        // Add initial content via native markdown param
         if (options.content) {
-          body.children = [{
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [{ type: 'text', text: { content: options.content } }],
-            },
-          }];
+          body.markdown = options.content;
         }
 
         const page = await client.post('pages', body);
@@ -356,7 +350,8 @@ export function registerPagesCommand(program: Command): void {
     .command('write <page_id>')
     .description('Write Markdown content to a page (from file or stdin)')
     .option('-f, --file <path>', 'Read Markdown from file')
-    .option('--replace', 'Replace existing content (deletes all blocks first). Default is append')
+    .option('--replace', 'Replace all page content (uses native markdown API). Default is append')
+    .option('--blocks', 'Force block-by-block replace (only with --replace)')
     .option('--dry-run', 'Show what would be written without making changes')
     .action(withErrorHandler(async (pageId: string, options) => {
       const client = getClient();
@@ -370,7 +365,6 @@ export function registerPagesCommand(program: Command): void {
           }
           markdown = fs.readFileSync(options.file, 'utf-8');
         } else {
-          // Read from stdin
           markdown = await readStdin();
         }
 
@@ -379,7 +373,19 @@ export function registerPagesCommand(program: Command): void {
           process.exit(1);
         }
 
-        // Convert to blocks
+        // --replace with native markdown API (atomic, single call)
+        if (options.replace && !options.blocks) {
+          if (options.dryRun) {
+            console.log(`Would replace page content with ${markdown.length} characters of markdown`);
+            console.log('\nDry run - no changes made');
+            return;
+          }
+          await replacePageMarkdown(client, pageId, markdown);
+          console.error('Replaced page content');
+          return;
+        }
+
+        // Append mode (or --replace --blocks): convert to blocks
         const blocks = markdownToBlocks(markdown);
 
         if (options.dryRun) {
@@ -394,26 +400,14 @@ export function registerPagesCommand(program: Command): void {
           return;
         }
 
-        // Delete existing blocks if --replace
+        // Delete existing blocks if --replace --blocks (legacy)
         if (options.replace) {
           const existing = await fetchAllBlocks(client, pageId);
           if (existing.length > 0) {
-            console.error(
-              `Warning: --replace will permanently delete ${existing.length} existing block(s). ` +
-              `This operation is not atomic — if the subsequent write fails, deleted content cannot be recovered automatically.`
-            );
-            // Keep a reference for error recovery attempt
-            const backup = existing.map(b => b.id);
-            try {
-              for (const block of existing) {
-                await client.delete(`blocks/${block.id}`);
-              }
-              console.error(`Removed ${existing.length} existing blocks`);
-            } catch (deleteError) {
-              console.error(`Error during block deletion: ${(deleteError as Error).message}`);
-              console.error(`Partial deletion may have occurred. Block IDs that were targeted:\n${backup.join('\n')}`);
-              process.exit(1);
+            for (const block of existing) {
+              await client.delete(`blocks/${block.id}`);
             }
+            console.error(`Removed ${existing.length} existing blocks`);
           }
         }
 
@@ -428,7 +422,7 @@ export function registerPagesCommand(program: Command): void {
             added += chunk.length;
           }
         } catch (writeError) {
-          console.error(`Error writing blocks (written so far: ${added}/${blocks.length}): ${(writeError as Error).message}`);
+          console.error(`Error writing blocks (${added}/${blocks.length} written): ${(writeError as Error).message}`);
           process.exit(1);
         }
 

@@ -103,18 +103,17 @@ console.log("code");
 
     it('should replace existing content with --replace flag', async () => {
       mockFS.set('/tmp/test.md', markdownContent);
-      mockClient.get.mockResolvedValue({
-        results: [{ id: 'block-1' }, { id: 'block-2' }],
-      });
-      mockClient.delete.mockResolvedValue({});
-      mockClient.patch.mockResolvedValue({ results: [] });
+      mockClient.patch.mockResolvedValue({});
 
       await program.parseAsync(['node', 'test', 'import', 'markdown', '/tmp/test.md', '--to', 'page-123', '--replace']);
 
-      expect(mockClient.get).toHaveBeenCalledWith('blocks/page-123/children');
-      expect(mockClient.delete).toHaveBeenCalledWith('blocks/block-1');
-      expect(mockClient.delete).toHaveBeenCalledWith('blocks/block-2');
-      expect(mockClient.patch).toHaveBeenCalled();
+      // Should use native markdown replace API
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123/markdown', {
+        type: 'replace_content',
+        replace_content: { new_str: expect.any(String) },
+      });
+      // Should NOT delete individual blocks
+      expect(mockClient.delete).not.toHaveBeenCalled();
     });
 
     it('should chunk large imports into batches of 100', async () => {
@@ -245,16 +244,13 @@ Task 3,Todo,Low,2026-03-01`;
   });
 
   describe('import obsidian', () => {
-    it('should chunk content blocks beyond 100 when importing with --content', async () => {
-      // Generate a markdown file with >100 blocks (each line = 1 paragraph block)
-      const lines = Array.from({ length: 150 }, (_, i) => `Paragraph ${i + 1}`);
-      const bigNote = `---\ntitle: "Big Note"\n---\n\n${lines.join('\n\n')}`;
+    it('should pass markdown content directly via native API with --content', async () => {
+      const noteBody = 'Paragraph 1\n\nParagraph 2\n\nParagraph 3';
+      const bigNote = `---\ntitle: "Big Note"\n---\n\n${noteBody}`;
 
-      // Set up vault with one big file
       mockFS.set('/vault', '<dir>');
       mockFS.set('/vault/big-note.md', bigNote);
 
-      // Override readdirSync to support withFileTypes option
       const fs = await import('fs');
       (fs.readdirSync as any).mockImplementation((dir: string, opts?: any) => {
         const prefix = dir.endsWith('/') ? dir : dir + '/';
@@ -272,32 +268,24 @@ Task 3,Todo,Low,2026-03-01`;
         return entries;
       });
 
-      // Set up database resolution
       setupDatabaseResolution(mockClient);
-
-      // Page creation returns an id for subsequent block appends
       mockClient.post.mockResolvedValue({ id: 'new-page-123' });
-      mockClient.patch.mockResolvedValue({ results: [] });
 
       await program.parseAsync(['node', 'test', 'import', 'obsidian', '/vault', '--to', 'db-123', '--content']);
 
-      // First 100 blocks go in the create call as children
+      // Should pass markdown directly, no chunking needed
       const createCall = mockClient.post.mock.calls.find(
         (c: any[]) => c[0] === 'pages'
       );
       expect(createCall).toBeDefined();
-      expect(createCall[1].children.length).toBe(100);
+      expect(createCall[1].markdown.trim()).toBe(noteBody);
+      expect(createCall[1].children).toBeUndefined();
 
-      // Remaining blocks go via patch (append)
+      // Should NOT use patch to append remaining blocks
       const appendCalls = mockClient.patch.mock.calls.filter(
-        (c: any[]) => c[0] === 'blocks/new-page-123/children'
+        (c: any[]) => typeof c[0] === 'string' && c[0].startsWith('blocks/')
       );
-      expect(appendCalls.length).toBeGreaterThanOrEqual(1);
-      // Total appended blocks should be 50 (150 - 100)
-      const appendedCount = appendCalls.reduce(
-        (sum: number, c: any[]) => sum + c[1].children.length, 0
-      );
-      expect(appendedCount).toBe(50);
+      expect(appendCalls.length).toBe(0);
     });
 
     it('should not warn about title in frontmatter', async () => {

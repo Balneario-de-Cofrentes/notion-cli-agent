@@ -125,13 +125,14 @@ export async function startMcpServer(): Promise<void> {
       },
 
       page_create: {
-        description: 'Create a page in a database',
+        description: 'Create a page in a database with optional markdown content',
         parameters: {
           type: 'object',
           properties: {
             parent_id: { type: 'string', description: 'Database ID or name' },
             title: { type: 'string', description: 'Page title' },
             properties: { type: 'object', description: 'Additional properties in Notion format' },
+            markdown: { type: 'string', description: 'Page content as markdown' },
           },
           required: ['parent_id', 'title'],
         },
@@ -145,10 +146,15 @@ export async function startMcpServer(): Promise<void> {
             ...(params.properties as Record<string, unknown> || {}),
           };
 
-          const page = await client.post('pages', {
+          const body: Record<string, unknown> = {
             parent: { database_id: parentId },
             properties,
-          });
+          };
+          if (params.markdown) {
+            body.markdown = params.markdown;
+          }
+
+          const page = await client.post('pages', body);
           return JSON.stringify(page);
         },
       },
