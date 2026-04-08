@@ -238,7 +238,7 @@ describe('Backup Command', () => {
       });
       mockClient.post.mockResolvedValue(createPaginatedResult([mockPage]));
 
-      await program.parseAsync(['node', 'test', 'backup', 'db-123', '--output', '/backup', '--format', 'markdown']);
+      await program.parseAsync(['node', 'test', 'backup', 'db-123', '--output', '/backup', '--format', 'markdown', '--content']);
 
       const mdFiles = Array.from(mockFS.keys()).filter(k => k.startsWith('/backup/pages/') && k.endsWith('.md'));
       expect(mdFiles.length).toBe(1);

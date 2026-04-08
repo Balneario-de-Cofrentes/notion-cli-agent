@@ -117,13 +117,14 @@ export function registerBackupCommand(program: Command): void {
           
           // Save based on format
           if (options.format === 'markdown') {
-            // Use native markdown API (1 call per page, no recursive block fetch)
             let mdContent = generateMarkdownFrontmatter(entry);
-            try {
-              const { markdown } = await getPageMarkdown(client, entry.id);
-              mdContent += markdown;
-            } catch {
-              mdContent += `<!-- Failed to fetch content -->\n`;
+            if (options.content) {
+              try {
+                const { markdown } = await getPageMarkdown(client, entry.id);
+                mdContent += markdown;
+              } catch {
+                mdContent += `<!-- Failed to fetch content -->\n`;
+              }
             }
             const filePath = path.join(pagesDir, `${filename}.md`);
             fs.writeFileSync(filePath, mdContent);

@@ -448,7 +448,11 @@ export function registerPagesCommand(program: Command): void {
 
       // Search-and-replace mode (native markdown API, 1 call)
       if (options.find) {
-        const newText = options.replaceText ?? '';
+        if (options.replaceText === undefined) {
+          console.error('Error: --replace-text is required with --find (use --replace-text "" to explicitly delete)');
+          process.exit(1);
+        }
+        const newText = options.replaceText;
         if (options.dryRun) {
           console.log(`Would replace "${options.find}" with "${newText}"${options.replaceAll ? ' (all occurrences)' : ''}`);
           console.log('\nDry run - no changes made');
