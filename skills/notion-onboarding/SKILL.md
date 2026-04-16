@@ -32,6 +32,14 @@ notion user me
 
 Confirm the integration is working. Note the workspace name.
 
+If this returns `401 API token is invalid`, you're almost certainly hitting a stale `NOTION_TOKEN` env var inherited from the parent process — the CLI prefers env vars over `~/.config/notion/api_key`. Use the file-token workaround from the **notion-cli-agent** skill for the rest of this onboarding:
+
+```bash
+NOTION_TOKEN=$(cat ~/.config/notion/api_key) notion user me
+```
+
+If that works, apply the same `NOTION_TOKEN=$(cat ~/.config/notion/api_key)` prefix to every `notion` call in the steps below.
+
 ## Step 2 — Discover all accessible databases
 
 ```bash
