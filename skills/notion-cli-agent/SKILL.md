@@ -1,6 +1,6 @@
 ---
 name: notion-cli-agent
-description: Use the local Notion CLI (notion-cli-agent) to query, create, update, and manage Notion pages and databases via shell. Use when interacting with Notion workspaces, querying databases, creating or updating pages, managing tasks, reading content blocks, or running bulk/batch operations on Notion data. Prefer over Notion MCP or API calls.
+description: Local Notion CLI for shell-based access to pages, databases, tasks, content blocks; bulk/batch ops. Prefer over Notion MCP or direct API.
 ---
 
 # notion-cli-agent
@@ -13,28 +13,37 @@ Local CLI for full Notion access.
 notion <args>   # globally installed via npm
 ```
 
-## Auth (read this — 401 is usually NOT an invalid token)
+## Auth — just run `notion <cmd>`
 
-Token resolution order inside the CLI (`getTokenSync()` in `client.ts`):
+That's it. The CLI handles auth automatically. **Do not prefix with `NOTION_TOKEN=...`** unless `notion doctor` reports a 401 (see Troubleshooting below).
 
-1. `NOTION_TOKEN` env var (highest priority)
+Token resolution order inside the CLI:
+1. `NOTION_TOKEN` env var
 2. `NOTION_API_KEY` env var
-3. `~/.config/notion/api_key`
+3. `~/.config/notion/api_key`  ← source of truth
 4. `~/.notion/token`
 
-**Gotcha:** Claude Code sessions often inherit a **stale `NOTION_TOKEN`** env var from a parent process (older sessions, MCP config, etc.). When that happens, `notion <cmd>` returns `401 API token is invalid` even though `~/.config/notion/api_key` contains a perfectly valid token — the CLI never reads the file because the env var wins.
-
-**Diagnostic:** `notion doctor` will show `✅ Token: Token found` but `❌ API Connection: Token is invalid or expired`. That pattern = stale env var, NOT a bad file.
-
-**Reliable workaround** (always works from Claude Code sessions):
+The recommended setup keeps `~/.config/notion/api_key` and the `NOTION_TOKEN` env var in lock-step by sourcing the file from `.zshrc`:
 
 ```bash
-NOTION_TOKEN=$(cat ~/.config/notion/api_key) notion <cmd>
+# in ~/.zshrc — single source of truth for the token
+export NOTION_TOKEN="$(cat ~/.config/notion/api_key 2>/dev/null)"
 ```
 
-This forces the CLI to use the file-backed token directly, bypassing the stale env var. Use this as the default invocation inside Claude sessions unless you've already verified `notion doctor` is fully green.
+With this, env var and file can't diverge — the stale-token gotcha disappears. Run `notion doctor` to verify (5/5 green).
 
-If you want to fix it permanently, the correct, source-of-truth token lives in `~/.config/notion/api_key`. Update `.zshrc`, `~/.mcp/global-config.json`, and any other places where `NOTION_TOKEN` is exported to match the file, then restart the session.
+### Troubleshooting (only if `notion doctor` reports 401)
+
+Symptom: `notion doctor` shows `✅ Token: Token found` but `❌ API Connection: Token is invalid or expired`.
+
+Means: the env var is stale (a parent process exported an outdated token). Fix:
+
+```bash
+# One-shot bypass (uses the file directly):
+NOTION_TOKEN=$(cat ~/.config/notion/api_key) notion <cmd>
+
+# Permanent fix: update .zshrc to the dynamic export above, restart shell.
+```
 
 ## Workspace sync (do this first)
 

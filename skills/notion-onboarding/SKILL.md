@@ -1,13 +1,6 @@
 ---
 name: notion-onboarding
-description: >
-  Discover and map a user's Notion workspace for the first time.
-  Run this before any Notion workflows when no workspace state exists.
-  Identifies key databases (projects, tasks, OKRs, home page, etc.)
-  through guided discovery and saves them to a persistent state file
-  so future interactions don't need to re-discover. Use when: first
-  Notion setup, user says "set up Notion", "map my workspace",
-  "onboard Notion", or when ~/.config/notion/workspace.json is missing.
+description: "First-time Notion workspace discovery — identify key databases (projects/tasks/OKRs/home page) via guided discovery and save persistent state. Run before any Notion workflow when no state exists. Triggers: 'set up Notion', 'map my workspace', 'onboard Notion', first Notion setup, or when ~/.config/notion/workspace.json is missing."
 ---
 
 # Notion Workspace Onboarding
