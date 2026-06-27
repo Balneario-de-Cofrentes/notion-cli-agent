@@ -81,6 +81,23 @@ notion inspect context "Tasks"                  # workflow context + examples
 notion ai prompt "Tasks"                        # DB-specific agent instructions
 ```
 
+### Users & guests
+```bash
+notion user list                                # members + bots + cached guests
+notion user resolve-guests                      # discover guests, cache them
+notion user get <user_id>                        # works for guests too (by id)
+```
+
+**Guests are NOT in `notion user list`.** Notion's `GET /v1/users` returns only
+members and bots — guests are invisible — so you can't list them or look up
+their id to assign them. Run `notion user resolve-guests` once: it walks search
+results, reads every page's `created_by`/`last_edited_by`, resolves the unknown
+ids via `GET /v1/users/{id}`, and caches the guests in
+`~/.config/notion/guests.json`. After that, `user list` shows them flagged
+`[guest]`, and you can assign them in `--prop "Field:people=…"` by **email or
+name** (see Property type hints). `notion sync` also fishes guests as a side
+effect.
+
 ### Query
 ```bash
 # Exact lookup in a known DB (deterministic — uses database query API)
@@ -183,8 +200,15 @@ Auto-detection treats plain strings as `select`. Use `Key:type=Value` to force a
 ```bash
 notion page update <id> --prop "Status:status=Done"    # status, not select
 notion page update <id> --prop "Notes:rich_text=Text"   # rich_text, not select
-notion page update <id> --prop "Owner:people=<user_id>" # people
+notion page update <id> --prop "Owner:people=<user_id>" # people (by id)
+notion page update <id> --prop "Owner:people=ana@x.com" # people by email (member or guest)
+notion page update <id> --prop "Owner:people=Ana Pérez" # people by name (case-insensitive)
 ```
+
+For `people=`, a value that isn't a UUID is resolved against members (live
+list) plus the guests cache: exact email first, then case-insensitive name.
+Run `notion user resolve-guests` first so guests are resolvable. Unresolvable
+values pass through unchanged.
 
 ## Rules
 

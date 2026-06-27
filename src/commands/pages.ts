@@ -4,10 +4,12 @@
 import { Command } from 'commander';
 import * as fs from 'fs';
 import { getClient } from '../client.js';
-import { formatOutput, formatPageTitle, parseProperties } from '../utils/format.js';
+import { formatOutput, formatPageTitle, parseProperties, propsIncludePeople } from '../utils/format.js';
 import { markdownToBlocks } from '../utils/markdown.js';
 import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, replacePageMarkdown, updatePageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
 import { getDatabaseSchema } from '../utils/database-resolver.js';
+import { normalizeNotionId } from '../utils/workspace-resolver.js';
+import { loadPeopleDirectory } from '../utils/people-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import type { Page } from '../types/notion.js';
 
@@ -24,7 +26,8 @@ export function registerPagesCommand(program: Command): void {
     .description('Retrieve a page by ID')
     .option('-j, --json', 'Output raw JSON')
     .option('--content', 'Also fetch page content (blocks)')
-    .action(withErrorHandler(async (pageId: string, options) => {
+    .action(withErrorHandler(async (rawPageId: string, options) => {
+      const pageId = normalizeNotionId(rawPageId);
       const client = getClient();
       const page = await client.get(`pages/${pageId}`);
 
@@ -115,7 +118,12 @@ export function registerPagesCommand(program: Command): void {
                 Object.entries(db.properties).map(([name, prop]) => [name, prop.type])
               )
             : undefined;
-          const parsed = parseProperties(options.prop, schemaTypes);
+          // People values may be emails/names; resolve members (live) + guests (cache),
+          // but only fetch the member list when a people field is actually assigned.
+          const peopleDirectory = propsIncludePeople(options.prop, schemaTypes)
+            ? await loadPeopleDirectory(client)
+            : undefined;
+          const parsed = parseProperties(options.prop, schemaTypes, peopleDirectory);
           Object.assign(properties, parsed);
         }
 
@@ -218,7 +226,12 @@ export function registerPagesCommand(program: Command): void {
                 Object.entries(db.properties).map(([name, prop]) => [name, prop.type])
               )
             : undefined;
-          const parsed = parseProperties(options.prop, schemaTypes);
+          // People values may be emails/names; resolve members (live) + guests (cache),
+          // but only fetch the member list when a people field is actually assigned.
+          const peopleDirectory = propsIncludePeople(options.prop, schemaTypes)
+            ? await loadPeopleDirectory(client)
+            : undefined;
+          const parsed = parseProperties(options.prop, schemaTypes, peopleDirectory);
           Object.assign(properties, parsed);
         }
 

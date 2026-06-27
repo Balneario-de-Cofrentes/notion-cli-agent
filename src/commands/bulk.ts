@@ -4,7 +4,8 @@
  */
 import { Command } from 'commander';
 import { getClient } from '../client.js';
-import { parseFilter, parseProperties } from '../utils/format.js';
+import { parseFilter, parseProperties, propsIncludePeople } from '../utils/format.js';
+import { loadPeopleDirectory } from '../utils/people-resolver.js';
 import { getPageTitle, buildTrashPayload } from '../utils/notion-helpers.js';
 import { getDatabaseSchema, queryDatabase } from '../utils/database-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
@@ -118,8 +119,15 @@ export function registerBulkCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Parse set clause
-      const setProperties = parseProperties(options.set.split(',').map((s: string) => s.trim()));
+      // Parse set clause — type via schema, resolve people by email/name (members + guests)
+      const setSchemaTypes = Object.fromEntries(
+        Object.entries(db.properties).map(([name, prop]) => [name, prop.type])
+      );
+      const setProps = options.set.split(',').map((s: string) => s.trim());
+      const peopleDirectory = propsIncludePeople(setProps, setSchemaTypes)
+        ? await loadPeopleDirectory(client)
+        : undefined;
+      const setProperties = parseProperties(setProps, setSchemaTypes, peopleDirectory);
 
       // Query matching entries
       const result = await queryDatabase<PaginatedResponse<Page>>(client, databaseId, {

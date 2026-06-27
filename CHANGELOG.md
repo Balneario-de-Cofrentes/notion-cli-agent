@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-06-27
+
+### Added
+
+- **Guest resolution** — Notion's `GET /v1/users` never returns guest users (only members and bots), so guests can't be listed or assigned by id. New `notion user resolve-guests` discovers guests by walking search results, reading each page's `created_by`/`last_edited_by`, resolving the unknown ids via `GET /v1/users/{id}`, and caching the `type: person` non-members in `~/.config/notion/guests.json` (`{ guests: [{id,name,email}], updatedAt }`, merged/deduped on each run). `notion sync` fishes guests as a side effect too.
+- **`user list` merges cached guests** — guests are shown flagged `[guest]` alongside members (and under a `guests` array in `--json`), deduped against any guest already returned by the live list.
+- **People assignment by email or name** — `--prop "Field:people=VALUE"` (page create/update, bulk) now resolves a non-UUID value to a user id: members (live list) + guests (cache), exact email first then case-insensitive name. UUIDs and unresolvable values pass through unchanged. Example: `--prop "Quién revisa:people=sergioangel@balneario.com"`.
+
+### Fixed
+
+- **Database alias resolution** — `db query` (and every command sharing `resolveDatabaseInput`: find, stats, dedup, export, etc.) now resolves the short aliases shown by `notion list` (`tasks` → Tareas, `projects` → Proyectos, `goals` → Objetivos, …). An exact alias match (the `databases`/`custom` map key) is now checked *before* title/substring matching, so `tasks` no longer errors "No database found" and `projects` no longer collides ambiguously with DBs titled "Projects [...]".
+- **Short / undashed page ids** — `page get` now normalizes a 32-hex (no-dashes) id into a dashed UUID, and emits a clear "pass the full UUID" message for a truncated short id (e.g. `4c485397`) instead of Notion's cryptic `path.page_id should be a valid uuid` 400.
+
 ## [0.19.0] - 2026-04-08
 
 ### Added

@@ -5,6 +5,7 @@ import {
   formatDatabaseTitle,
   formatBlock,
   parseProperties,
+  propsIncludePeople,
   parseFilter,
   formatResultsAsDelimited,
 } from '../../src/utils/format';
@@ -595,6 +596,54 @@ describe('Format Utilities', () => {
         Empty: { select: { name: '' } },
       });
     });
+
+    it('resolves a people value by email against the injected directory', () => {
+      const props = ['Quién revisa:people=sergioangel@balneario.com'];
+      const directory = {
+        members: [],
+        guests: [
+          {
+            id: '240566b6-0c2e-413a-9efa-6f011bdc3976',
+            name: 'Sergio Balufo',
+            email: 'sergioangel@balneario.com',
+          },
+        ],
+      };
+      const result = parseProperties(props, undefined, directory);
+      expect(result).toEqual({
+        'Quién revisa': {
+          people: [{ id: '240566b6-0c2e-413a-9efa-6f011bdc3976' }],
+        },
+      });
+    });
+
+    it('resolves a people value by case-insensitive name against the directory', () => {
+      const props = ['Owner:people=sergio balufo'];
+      const directory = {
+        members: [],
+        guests: [
+          { id: 'guest-1', name: 'Sergio Balufo', email: 'sergioangel@balneario.com' },
+        ],
+      };
+      const result = parseProperties(props, undefined, directory);
+      expect(result).toEqual({ Owner: { people: [{ id: 'guest-1' }] } });
+    });
+
+    it('passes a UUID people value through even with a directory', () => {
+      const props = ['Owner:people=240566b6-0c2e-413a-9efa-6f011bdc3976'];
+      const directory = { members: [], guests: [] };
+      const result = parseProperties(props, undefined, directory);
+      expect(result).toEqual({
+        Owner: { people: [{ id: '240566b6-0c2e-413a-9efa-6f011bdc3976' }] },
+      });
+    });
+
+    it('leaves an unresolvable people value untouched (pass-through)', () => {
+      const props = ['Assignee:people=user-123'];
+      const directory = { members: [], guests: [] };
+      const result = parseProperties(props, undefined, directory);
+      expect(result).toEqual({ Assignee: { people: [{ id: 'user-123' }] } });
+    });
   });
 
   describe('parseFilter()', () => {
@@ -894,5 +943,20 @@ describe('Format Utilities', () => {
       const csv = formatResultsAsDelimited(itemsWithQuote as any, ',');
       expect(csv).toContain('"Say ""hello"""');
     });
+  });
+});
+
+describe('propsIncludePeople', () => {
+  it('detects an explicit :people= type hint', () => {
+    expect(propsIncludePeople(['Owner:people=a@b.com'])).toBe(true);
+  });
+  it('detects a people field via the schema map', () => {
+    expect(propsIncludePeople(['Owner=a@b.com'], { Owner: 'people' })).toBe(true);
+  });
+  it('is false when no people field is present', () => {
+    expect(propsIncludePeople(['Status:status=Done', 'Tags=x'], { Status: 'status' })).toBe(false);
+  });
+  it('lets an explicit non-people hint win over the schema', () => {
+    expect(propsIncludePeople(['Owner:rich_text=people'], { Owner: 'people' })).toBe(false);
   });
 });

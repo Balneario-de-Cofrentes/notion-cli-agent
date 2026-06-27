@@ -5,6 +5,11 @@ import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import {
+  fishGuests,
+  readGuests,
+  getGuestsPath,
+} from '../utils/people-resolver.js';
 import type { PaginatedResponse } from '../types/notion.js';
 
 interface User {
@@ -61,8 +66,17 @@ export function registerUsersCommand(program: Command): void {
 
       const result = await client.get('users', query) as PaginatedResponse<User>;
 
+      // Notion's user list never returns guests. Merge in any guests we've
+      // previously fished (notion user resolve-guests) so they're visible,
+      // skipping ones that already appear in the live list.
+      const memberIds = new Set(result.results.map(u => u.id));
+      const cachedGuests = readGuests().filter(g => !memberIds.has(g.id));
+
       if (options.json) {
-        console.log(formatOutput(result));
+        console.log(formatOutput({
+          ...result,
+          guests: cachedGuests,
+        }));
         return;
       }
 
@@ -77,9 +91,53 @@ export function registerUsersCommand(program: Command): void {
         console.log('');
       }
 
+      for (const guest of cachedGuests) {
+        console.log(`👤 ${guest.name || 'Unknown'} [guest]`);
+        console.log(`   ID: ${guest.id}`);
+        console.log(`   Type: guest`);
+        if (guest.email) {
+          console.log(`   Email: ${guest.email}`);
+        }
+        console.log('');
+      }
+
       if (result.has_more) {
         console.log(`More results available. Use --cursor ${result.next_cursor}`);
       }
+    }));
+
+  // Resolve guests (fishing): guests aren't in the user list, so discover them
+  // from page created_by/last_edited_by ids and cache them locally.
+  users
+    .command('resolve-guests')
+    .description('Discover guest users (not in user list) and cache them locally')
+    .option('-j, --json', 'Output raw JSON')
+    .action(withErrorHandler(async (options) => {
+      const client = getClient();
+      const guests = await fishGuests(client);
+
+      if (options.json) {
+        console.log(formatOutput({ guests, cache: getGuestsPath() }));
+        return;
+      }
+
+      if (guests.length === 0) {
+        console.log('No new guests found.');
+        console.log(`(Guests don't appear in "notion user list"; resolved from page authorship.)`);
+        return;
+      }
+
+      console.log(`Resolved ${guests.length} guest(s) → ${getGuestsPath()}\n`);
+      for (const guest of guests) {
+        console.log(`👤 ${guest.name || 'Unknown'} [guest]`);
+        console.log(`   ID: ${guest.id}`);
+        if (guest.email) {
+          console.log(`   Email: ${guest.email}`);
+        }
+        console.log('');
+      }
+      console.log('You can now assign them by email/name, e.g.:');
+      console.log(`  notion page update <id> --prop "Owner:people=${guests[0].email || guests[0].name}"`);
     }));
 
   // Get user

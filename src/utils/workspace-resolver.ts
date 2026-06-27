@@ -57,6 +57,43 @@ export function isNotionUUID(input: string): boolean {
   return NOTION_ID_RE.test(input);
 }
 
+// ─── ID normalization ─────────────────────────────────────────────────────────
+
+const DASHED_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const BARE_32_HEX_RE = /^[0-9a-f]{32}$/i;
+const SHORT_HEX_RE = /^[0-9a-f]{1,31}$/i;
+
+/**
+ * Normalize a page/block/database id arg to a dashed UUID the Notion API
+ * accepts.
+ *
+ * - Dashed UUID (`4c485397-...`) → returned as-is.
+ * - 32-hex without dashes (`4c4853971234...`) → inserted dashes, lowercased.
+ * - A bare short hex id (e.g. an 8-hex `4c485397` copied from a Notion URL
+ *   slug) cannot be reconstructed into a full UUID, so we throw a clear error
+ *   telling the user to pass the full id instead of letting Notion return a
+ *   cryptic "should be a valid uuid" 400.
+ * - Anything else (names, slugs with non-hex chars) is returned untouched so
+ *   callers can apply their own resolution.
+ */
+export function normalizeNotionId(input: string): string {
+  if (DASHED_UUID_RE.test(input)) return input;
+
+  if (BARE_32_HEX_RE.test(input)) {
+    const hex = input.toLowerCase();
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  if (SHORT_HEX_RE.test(input)) {
+    throw new Error(
+      `"${input}" looks like a truncated Notion id. Pass the full UUID ` +
+      `(36 chars with dashes, or 32 hex chars) — short ids can't be expanded.`,
+    );
+  }
+
+  return input;
+}
+
 // ─── Workspace file I/O ─────────────────────────────────────────────────────
 
 export function getWorkspacePath(): string {
@@ -164,6 +201,16 @@ export function resolveDatabaseInput(input: string): string {
     );
     return input;
   }
+
+  // 1. Exact alias match wins first. Aliases are the keys of the `databases`
+  //    / `custom` maps (the `role` field, e.g. `tasks` → Tareas), exactly what
+  //    `notion list` prints in its first column. Matching these before any
+  //    title/substring matching makes alias lookups deterministic and avoids
+  //    false ambiguity with unrelated DBs whose titles happen to contain the
+  //    alias word (e.g. "Projects [Customer Journey]").
+  const lowerInput = input.toLowerCase();
+  const aliasMatch = all.filter(db => db.role && db.role.toLowerCase() === lowerInput);
+  if (aliasMatch.length === 1) return aliasMatch[0].id;
 
   const exact = all.filter(db => db.title === input);
   if (exact.length === 1) return exact[0].id;

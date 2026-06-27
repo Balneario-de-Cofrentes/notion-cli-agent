@@ -2,6 +2,11 @@
  * Formatting utilities for CLI output
  */
 import { getPropertyValue } from './notion-helpers.js';
+import {
+  resolvePeopleValue,
+  loadCachedDirectory,
+  type PeopleDirectory,
+} from './people-resolver.js';
 
 export function formatOutput(data: unknown): string {
   return JSON.stringify(data, null, 2);
@@ -182,7 +187,13 @@ function getBlockPrefix(type: string): string {
   return prefixes[type] || '?';
 }
 
-function buildTypedProperty(type: string, value: string): unknown {
+function buildPeopleValue(value: string, directory: PeopleDirectory): unknown {
+  return {
+    people: value.split(',').map(v => ({ id: resolvePeopleValue(v.trim(), directory) })),
+  };
+}
+
+function buildTypedProperty(type: string, value: string, directory: PeopleDirectory): unknown {
   switch (type) {
     case 'status':
       return { status: { name: value } };
@@ -203,7 +214,7 @@ function buildTypedProperty(type: string, value: string): unknown {
     case 'email':
       return { email: value };
     case 'people':
-      return { people: value.split(',').map(id => ({ id: id.trim() })) };
+      return buildPeopleValue(value, directory);
     case 'relation':
       return { relation: value.split(',').map(id => ({ id: id.trim() })) };
     default:
@@ -211,8 +222,36 @@ function buildTypedProperty(type: string, value: string): unknown {
   }
 }
 
-export function parseProperties(props: string[], schemaTypes?: Record<string, string>): Record<string, unknown> {
+/**
+ * True if any prop targets a `people`-typed field — via an explicit
+ * `Key:people=…` hint or the database schema. Lets callers skip the live member
+ * fetch (and its API call) when no people assignment is involved.
+ */
+export function propsIncludePeople(props: string[], schemaTypes?: Record<string, string>): boolean {
+  for (const prop of props) {
+    const eqIndex = prop.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = prop.slice(0, eqIndex);
+    const colonIndex = key.indexOf(':');
+    if (colonIndex !== -1) {
+      if (key.slice(colonIndex + 1) === 'people') return true;
+      continue;
+    }
+    if (schemaTypes && schemaTypes[key] === 'people') return true;
+  }
+  return false;
+}
+
+export function parseProperties(
+  props: string[],
+  schemaTypes?: Record<string, string>,
+  peopleDirectory?: PeopleDirectory,
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  // People values may be emails/names that resolve to member or guest ids.
+  // When no directory is injected, fall back to the on-disk guests cache so
+  // callers (e.g. `notion page create/update`) resolve guests transparently.
+  const directory = peopleDirectory ?? loadCachedDirectory();
 
   for (const prop of props) {
     const eqIndex = prop.indexOf('=');
@@ -231,13 +270,13 @@ export function parseProperties(props: string[], schemaTypes?: Record<string, st
 
     // If type hint is provided, use it directly
     if (typeHint) {
-      result[key] = buildTypedProperty(typeHint, value);
+      result[key] = buildTypedProperty(typeHint, value, directory);
       continue;
     }
 
     // If schema provides the property type, use it instead of guessing
     if (schemaTypes && schemaTypes[key]) {
-      result[key] = buildTypedProperty(schemaTypes[key], value);
+      result[key] = buildTypedProperty(schemaTypes[key], value, directory);
       continue;
     }
 

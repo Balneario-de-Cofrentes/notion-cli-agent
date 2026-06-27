@@ -774,9 +774,21 @@ notion page update <id> --prop "Status:status=Done"
 # Rich text instead of select
 notion page update <id> --prop "Notes:rich_text=Some notes"
 
-# People by user ID
+# People by user ID, email, or name
 notion page update <id> --prop "Assignee:people=user-id-here"
+notion page update <id> --prop "Assignee:people=ana@example.com"   # resolved to id
+notion page update <id> --prop "Assignee:people=Ana Pérez"          # case-insensitive name
 ```
+
+> **Assigning guests.** Notion's `GET /v1/users` (and `notion user list`) only
+> returns **members and bots** — guest users are invisible and you can't list
+> their id. Run `notion user resolve-guests` once: it discovers guests from
+> page authorship (`created_by`/`last_edited_by`) via `GET /v1/users/{id}` and
+> caches them in `~/.config/notion/guests.json`. After that, `notion user list`
+> shows them flagged `[guest]`, and `--prop "Field:people=<email|name>"`
+> resolves members (live list) and guests (cache) — exact email first, then
+> case-insensitive name. `notion sync` fishes guests too. Non-UUID values that
+> match nothing pass through unchanged.
 
 For database queries with non-select properties:
 ```bash
@@ -823,7 +835,7 @@ Exposes 14 tools: `search`, `page_get`, `page_create`, `page_update`, `db_query`
 | **Databases** | `db get`, `db query`, `db create`, `db update` |
 | **Blocks** | `block get`, `block list`, `block append`, `block update`, `block delete` |
 | **Comments** | `comment list`, `comment create`, `comment get` |
-| **Users** | `user me`, `user list`, `user get` |
+| **Users** | `user me`, `user list`, `user get`, `user resolve-guests` |
 | **Export** | `export page`, `export db` |
 | **Import** | `import obsidian`, `import csv`, `import markdown` |
 | **AI** | `ai summarize`, `ai extract`, `ai prompt`, `ai suggest` |

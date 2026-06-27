@@ -234,6 +234,129 @@ describe('Users Command', () => {
     });
   });
 
+  describe('user list — guest merge', () => {
+    beforeEach(async () => {
+      vi.resetModules();
+
+      mockClient = {
+        get: vi.fn(),
+        post: vi.fn(),
+        patch: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      vi.doMock('../../src/client', () => ({
+        getClient: () => mockClient,
+        initClient: vi.fn(),
+      }));
+
+      vi.doMock('../../src/utils/people-resolver', () => ({
+        readGuests: () => [
+          {
+            id: '240566b6-0c2e-413a-9efa-6f011bdc3976',
+            name: 'Sergio Balufo',
+            email: 'sergioangel@balneario.com',
+          },
+        ],
+        fishGuests: vi.fn(),
+        listWorkspaceMembers: vi.fn(),
+        getGuestsPath: () => '/tmp/guests.json',
+      }));
+
+      const { registerUsersCommand } = await import('../../src/commands/users');
+      program = new Command();
+      registerUsersCommand(program);
+    });
+
+    it('lists cached guests flagged as [guest] alongside members', async () => {
+      mockClient.get.mockResolvedValue(mockUserList);
+
+      await program.parseAsync(['node', 'test', 'user', 'list']);
+
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Test User'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Sergio Balufo'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[guest]'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('sergioangel@balneario.com'),
+      );
+    });
+
+    it('does not duplicate a guest already returned by the member list', async () => {
+      const guestAsMember = {
+        object: 'user',
+        id: '240566b6-0c2e-413a-9efa-6f011bdc3976',
+        type: 'person',
+        name: 'Sergio Balufo',
+        person: { email: 'sergioangel@balneario.com' },
+      };
+      mockClient.get.mockResolvedValue(createPaginatedResult([guestAsMember]));
+
+      await program.parseAsync(['node', 'test', 'user', 'list']);
+
+      const sergioLines = (console.log as any).mock.calls
+        .map((c: any[]) => String(c[0]))
+        .filter((l: string) => l.includes('Sergio Balufo'));
+      expect(sergioLines).toHaveLength(1);
+    });
+  });
+
+  describe('user resolve-guests', () => {
+    let fishGuests: any;
+
+    beforeEach(async () => {
+      vi.resetModules();
+
+      mockClient = {
+        get: vi.fn(),
+        post: vi.fn(),
+        patch: vi.fn(),
+        delete: vi.fn(),
+      };
+
+      vi.doMock('../../src/client', () => ({
+        getClient: () => mockClient,
+        initClient: vi.fn(),
+      }));
+
+      fishGuests = vi.fn().mockResolvedValue([
+        {
+          id: '240566b6-0c2e-413a-9efa-6f011bdc3976',
+          name: 'Sergio Balufo',
+          email: 'sergioangel@balneario.com',
+        },
+      ]);
+
+      vi.doMock('../../src/utils/people-resolver', () => ({
+        fishGuests,
+        readGuests: () => [],
+        listWorkspaceMembers: vi.fn().mockResolvedValue([]),
+        getGuestsPath: () => '/tmp/guests.json',
+      }));
+
+      const { registerUsersCommand } = await import('../../src/commands/users');
+      program = new Command();
+      registerUsersCommand(program);
+    });
+
+    it('fishes guests and reports the discovered guest', async () => {
+      await program.parseAsync(['node', 'test', 'user', 'resolve-guests']);
+
+      expect(fishGuests).toHaveBeenCalled();
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Sergio Balufo'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('sergioangel@balneario.com'),
+      );
+    });
+
+    it('outputs JSON when --json is set', async () => {
+      await program.parseAsync(['node', 'test', 'user', 'resolve-guests', '--json']);
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('240566b6-0c2e-413a-9efa-6f011bdc3976'),
+      );
+    });
+  });
+
   describe('Error handling', () => {
     it('should handle API errors on me command', async () => {
       mockClient.get.mockRejectedValue(new Error('Unauthorized'));
