@@ -949,6 +949,18 @@ cp -r skills/notion-onboarding ~/.local/share/openclaw/skills/
 
 Contributions are welcome! Please open an issue first to discuss what you would like to change.
 
+### Releasing
+
+The version in `package.json`, the `CHANGELOG.md` entry, the git tag, and the GitHub release are all cut before publishing. To publish a tagged version to npm:
+
+```bash
+git checkout main && git pull
+git describe --tags --exact-match          # confirm you're on the release tag
+npm publish                                # prepublishOnly runs the build
+```
+
+`files` in `package.json` limits the tarball to `dist/`, `README.md`, and `LICENSE` — `npm pack --dry-run` shows exactly what ships. Run `pnpm test` before publishing; there is no CI gate on publish.
+
 ---
 
 ## 📄 License
