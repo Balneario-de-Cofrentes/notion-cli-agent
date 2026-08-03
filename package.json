@@ -57,7 +57,7 @@
     "@types/node": "^22.19.15",
     "eslint": "^9.0.0",
     "typescript": "^5.7.0",
-    "vite": "^7.3.2",
+    "vite": "^7.3.5",
     "vitest": "^4.1.3"
   },
   "engines": {
@@ -67,10 +67,14 @@
     "overrides": {
       "minimatch": ">=3.1.4",
       "rollup": ">=4.59.0",
-      "ajv": ">=6.14.0",
+      "@eslint/eslintrc>ajv": ">=6.14.0 <7",
+      "@eslint/eslintrc>js-yaml": ">=4.3.0 <5",
+      "eslint>ajv": ">=6.14.0 <7",
       "flatted": ">=3.4.2",
-      "vite": ">=7.3.2",
-      "brace-expansion": ">=5.0.5"
+      "vite": ">=7.3.5 <8",
+      "vite>esbuild": ">=0.28.1 <0.29",
+      "vite>postcss": ">=8.5.18 <9",
+      "brace-expansion": ">=5.0.8"
     }
   }
 }
