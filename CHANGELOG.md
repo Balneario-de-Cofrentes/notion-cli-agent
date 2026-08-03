@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-07-26
+
+### Added
+
+- **File uploads** — full support for Notion's File Upload API (`POST /v1/file_uploads` → `/send` → `/complete`). Files ≤20 MB upload in a single part; larger files are split into 10 MB parts and completed automatically. Every flag below takes a `<source>` that can be a **local path**, a **public URL** (imported server-side via `mode: external_url`, polled until ready), or an existing **`file_upload` ID**.
+- **`file` command** — `file upload <path...>` (prints the upload ID), `file import <url>`, `file attach <page_id> <source...>` (upload + append in one call, block type detected from the file, `--as` to force it), `file list`, `file get`.
+- **`block append --image/--file/--pdf/--video/--audio`** — attach media while adding content, with `--caption`.
+- **`page create|update --cover <source>`** and **`--icon <emoji|source>`** — `--icon` still accepts an emoji; a path, URL, or upload ID is uploaded instead.
+- **`page create|update --attach "Prop=a.pdf,b.png"`** — set a `files` property; the property name is resolved against the database schema and rejected if it isn't a `files` property.
+- **`comment create --attach <source...>`** — attach up to 3 files to a comment.
+- **MCP tools `file_upload` and `file_attach`**, plus an `attachments` param on `comment_create`.
+- **`file import` derives a filename extension from `--content-type`** — Notion rejects URL imports whose filename has no extension, which is common for CDN URLs ending in a bare id. When neither the URL nor `--name` provides one, the CLI fails with an actionable message instead of Notion's opaque 400.
+
 ## [0.20.0] - 2026-06-27
 
 ### Added

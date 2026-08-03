@@ -56,6 +56,7 @@ skills/
 - **Databases** — Query with filters, create schemas, manage entries
 - **Blocks** — Add and manage page content (paragraphs, headings, lists, code, etc.)
 - **Comments** — Read and create comments on pages
+- **Files** — Upload images and attachments to pages, properties, icons/covers, and comments
 - **Users** — List workspace users and integrations
 
 ### 🤖 AI Agent Features
@@ -255,6 +256,49 @@ notion page edit <page_id> --at 3 --delete 2                    # Delete 2 block
 notion page edit <page_id> --at 5 --markdown "New paragraph"    # Insert at index 5
 notion page edit <page_id> --at 0 --delete 1 --file new.md      # Replace first block
 notion page edit <page_id> --dry-run --at 3 --delete 1          # Preview without changes
+```
+
+---
+
+## 📎 Files & Attachments
+
+Upload images and attachments to Notion. Anywhere a `<source>` is accepted it can be a **local path**, a **public URL** (Notion imports it server-side), or an existing **`file_upload` ID** (attach the same upload again without re-uploading). Files over 20 MB are split into parts automatically.
+
+```bash
+# Upload and attach in one call (block type detected from the file)
+notion file attach <page_id> shot.png
+notion file attach <page_id> a.pdf b.png --caption "Q3 report"
+notion file attach <page_id> clip.mp4 --as video --after <block_id>
+
+# Upload only — prints the file_upload ID for later use
+notion file upload shot.png                       # → ID: 1a2b3c4d-...
+notion file upload a.pdf b.png --json
+notion file import https://example.com/logo.png   # Import from a public URL
+
+# Inspect uploads
+notion file list --status uploaded
+notion file get <file_upload_id>
+
+# Attach while adding content
+notion block append <page_id> --text "See below" --image shot.png --caption "Diagram"
+notion block append <page_id> --pdf report.pdf --file data.zip
+
+# Page icon, cover, and files properties
+notion page update <page_id> --icon logo.png --cover https://example.com/hero.jpg
+notion page update <page_id> --attach "Attachments=spec.pdf,diagram.png"
+notion page create --parent <db_id> -t "Release" --attach "Docs=notes.md"
+
+# Comments (max 3 attachments)
+notion comment create --page <page_id> -t "Screenshot attached" --attach shot.png
+```
+
+`--icon` still takes an emoji (`--icon 📝`); anything that looks like a path, URL, or upload ID is uploaded instead.
+
+**URL imports need a file extension.** Notion requires a filename with an extension, and many CDN URLs end in a bare ID. Supply one with `--content-type` (or `--name`) and reuse the resulting ID:
+
+```bash
+notion file import https://images.unsplash.com/photo-1506744038136 --content-type image/jpeg
+notion page update <page_id> --cover <file_upload_id>
 ```
 
 ---
@@ -835,6 +879,7 @@ Exposes 14 tools: `search`, `page_get`, `page_create`, `page_update`, `db_query`
 | **Databases** | `db get`, `db query`, `db create`, `db update` |
 | **Blocks** | `block get`, `block list`, `block append`, `block update`, `block delete` |
 | **Comments** | `comment list`, `comment create`, `comment get` |
+| **Files** | `file upload`, `file import`, `file attach`, `file list`, `file get` |
 | **Users** | `user me`, `user list`, `user get`, `user resolve-guests` |
 | **Export** | `export page`, `export db` |
 | **Import** | `import obsidian`, `import csv`, `import markdown` |

@@ -2,6 +2,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 import { mockPage, mockDatabase, mockBlockChildren, mockBlock, mockHeadingBlock, mockCodeBlock, setupDatabaseResolution, mockMultiDsDatabase, mockDataSource } from '../fixtures/notion-data';
 
+// Schema variant used by the --attach tests: mockDatabase plus a files property
+const dbWithFilesProperty = {
+  ...mockDatabase,
+  properties: {
+    ...mockDatabase.properties,
+    Attachments: { id: 'attach', type: 'files', files: {} },
+  },
+};
+
 describe('Pages Command', () => {
   let program: Command;
   let mockClient: any;
@@ -17,6 +26,7 @@ describe('Pages Command', () => {
       post: vi.fn(),
       patch: vi.fn(),
       delete: vi.fn(),
+      postForm: vi.fn(),
     };
 
     // Mock the client module
@@ -25,7 +35,7 @@ describe('Pages Command', () => {
       initClient: vi.fn(),
     }));
 
-    // Mock fs module (needed for page write/edit commands)
+    // Mock fs module (needed for page write/edit commands and file uploads)
     vi.doMock('fs', () => ({
       readFileSync: vi.fn((path: string) => {
         if (mockFS.has(path)) {
@@ -35,6 +45,14 @@ describe('Pages Command', () => {
       }),
       existsSync: vi.fn((path: string) => mockFS.has(path)),
       writeFileSync: vi.fn(),
+      promises: {
+        stat: vi.fn(async (path: string) => {
+          if (!mockFS.has(path)) throw new Error('ENOENT');
+          return { size: String(mockFS.get(path)).length };
+        }),
+        readFile: vi.fn(async (path: string) => Buffer.from(String(mockFS.get(path)))),
+        open: vi.fn(),
+      },
     }));
 
     // Import command and register it
@@ -293,6 +311,37 @@ describe('Pages Command', () => {
         icon: { type: 'emoji', emoji: '📝' },
       }));
     });
+
+    it('should create page with an uploaded cover and files property', async () => {
+      mockFS.set('cover.jpg', 'binary');
+      mockFS.set('spec.pdf', 'binary');
+      setupDatabaseResolution(mockClient, dbWithFilesProperty);
+      // Properties are resolved before the cover, so spec.pdf uploads first
+      mockClient.post
+        .mockResolvedValueOnce({ id: 'up-s' })   // create upload (spec)
+        .mockResolvedValueOnce({ id: 'up-c' })   // create upload (cover)
+        .mockResolvedValueOnce({ ...mockPage, id: 'new-page-123' });
+      mockClient.postForm
+        .mockResolvedValueOnce({ id: 'up-s', status: 'uploaded', filename: 'spec.pdf' })
+        .mockResolvedValueOnce({ id: 'up-c', status: 'uploaded', filename: 'cover.jpg' });
+
+      await program.parseAsync([
+        'node', 'test', 'page', 'create',
+        '--parent', 'db-123',
+        '--attach', 'Attachments=spec.pdf',
+        '--cover', 'cover.jpg',
+      ]);
+
+      expect(mockClient.post).toHaveBeenLastCalledWith('pages', {
+        parent: { database_id: 'db-123' },
+        properties: {
+          Attachments: {
+            files: [{ type: 'file_upload', file_upload: { id: 'up-s' }, name: 'spec.pdf' }],
+          },
+        },
+        cover: { type: 'file_upload', file_upload: { id: 'up-c' } },
+      });
+    });
   });
 
   describe('page update', () => {
@@ -393,6 +442,96 @@ describe('Pages Command', () => {
       expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123', {
         icon: { type: 'emoji', emoji: '🚀' },
       });
+    });
+
+    it('should upload a local file as the page icon', async () => {
+      mockFS.set('logo.png', 'binary');
+      mockClient.post.mockResolvedValue({ id: 'up-1' });
+      mockClient.postForm.mockResolvedValue({ id: 'up-1', status: 'uploaded', filename: 'logo.png' });
+      mockClient.patch.mockResolvedValue({ ...mockPage, id: 'page-123' });
+
+      await program.parseAsync([
+        'node', 'test', 'page', 'update', 'page-123',
+        '--icon', 'logo.png',
+      ]);
+
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123', {
+        icon: { type: 'file_upload', file_upload: { id: 'up-1' } },
+      });
+    });
+
+    it('should set a page cover from a public URL', async () => {
+      mockClient.post.mockResolvedValue({ id: 'up-2', status: 'uploaded', filename: 'hero.jpg' });
+      mockClient.patch.mockResolvedValue({ ...mockPage, id: 'page-123' });
+
+      await program.parseAsync([
+        'node', 'test', 'page', 'update', 'page-123',
+        '--cover', 'https://example.com/hero.jpg',
+      ]);
+
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123', {
+        cover: { type: 'file_upload', file_upload: { id: 'up-2' } },
+      });
+    });
+
+    it('should attach files to a files property', async () => {
+      mockFS.set('a.pdf', 'binary');
+      mockFS.set('b.png', 'binary');
+      mockClient.get.mockResolvedValueOnce(mockPage);
+      setupDatabaseResolution(mockClient, dbWithFilesProperty);
+      mockClient.post.mockResolvedValue({ id: 'up-x' });
+      mockClient.postForm
+        .mockResolvedValueOnce({ id: 'up-a', status: 'uploaded', filename: 'a.pdf' })
+        .mockResolvedValueOnce({ id: 'up-b', status: 'uploaded', filename: 'b.png' });
+      mockClient.patch.mockResolvedValue({ ...mockPage, id: 'page-123' });
+
+      await program.parseAsync([
+        'node', 'test', 'page', 'update', 'page-123',
+        '--attach', 'attachments=a.pdf,b.png',
+      ]);
+
+      expect(mockClient.patch).toHaveBeenCalledWith('pages/page-123', {
+        properties: {
+          Attachments: {
+            files: [
+              { type: 'file_upload', file_upload: { id: 'up-a' }, name: 'a.pdf' },
+              { type: 'file_upload', file_upload: { id: 'up-b' }, name: 'b.png' },
+            ],
+          },
+        },
+      });
+    });
+
+    it('should reject --attach on a non-files property', async () => {
+      mockFS.set('a.pdf', 'binary');
+      mockClient.get.mockResolvedValueOnce(mockPage);
+      setupDatabaseResolution(mockClient, dbWithFilesProperty);
+
+      await expect(program.parseAsync([
+        'node', 'test', 'page', 'update', 'page-123',
+        '--attach', 'Status=a.pdf',
+      ])).rejects.toThrow('process.exit(1)');
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error:',
+        'Property "Status" is a status property — --attach requires a files property',
+      );
+      expect(mockClient.patch).not.toHaveBeenCalled();
+    });
+
+    it('should reject a malformed --attach value', async () => {
+      mockClient.get.mockResolvedValueOnce(mockPage);
+      setupDatabaseResolution(mockClient, dbWithFilesProperty);
+
+      await expect(program.parseAsync([
+        'node', 'test', 'page', 'update', 'page-123',
+        '--attach', 'Attachments',
+      ])).rejects.toThrow('process.exit(1)');
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error:',
+        'Invalid --attach value "Attachments". Expected "PropertyName=path[,path...]"',
+      );
     });
 
     it('should update icon together with properties', async () => {

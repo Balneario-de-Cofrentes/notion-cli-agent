@@ -3,7 +3,7 @@
  */
 import { Command } from 'commander';
 import * as fs from 'fs';
-import { getClient } from '../client.js';
+import { getClient, type NotionClient } from '../client.js';
 import { formatOutput, formatPageTitle, parseProperties, propsIncludePeople } from '../utils/format.js';
 import { markdownToBlocks } from '../utils/markdown.js';
 import { blocksToMarkdownAsync, fetchAllBlocks, getPageMarkdown, replacePageMarkdown, updatePageMarkdown, getPageTitle, isParentDatabase, getParentDatabaseId, resolvePropertyName, buildClearPayload, buildTrashPayload, buildBlockPosition } from '../utils/notion-helpers.js';
@@ -11,7 +11,82 @@ import { getDatabaseSchema } from '../utils/database-resolver.js';
 import { normalizeNotionId } from '../utils/workspace-resolver.js';
 import { loadPeopleDirectory } from '../utils/people-resolver.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import {
+  isFileSource,
+  resolveFileUpload,
+  resolveFileUploads,
+  buildFileAttachment,
+} from '../utils/file-upload.js';
 import type { Page } from '../types/notion.js';
+
+type DatabaseSchema = Record<string, { type: string }>;
+
+/**
+ * Build an `icon`/`cover` payload. An emoji stays an emoji; a local path,
+ * public URL, or file_upload ID is uploaded and attached as a file.
+ */
+async function buildIconOrCover(client: NotionClient, value: string): Promise<Record<string, unknown>> {
+  if (!isFileSource(value)) {
+    return { type: 'emoji', emoji: value };
+  }
+  const file = await resolveFileUpload(client, value);
+  return buildFileAttachment(file.id);
+}
+
+/**
+ * Parse repeated `--attach "Prop=a.png,b.pdf"` flags into property → sources.
+ * Repeats of the same property accumulate instead of overwriting.
+ */
+function parseAttachSpecs(specs: string[]): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const spec of specs) {
+    const eqIndex = spec.indexOf('=');
+    if (eqIndex === -1) {
+      throw new Error(`Invalid --attach value "${spec}". Expected "PropertyName=path[,path...]"`);
+    }
+    const name = spec.slice(0, eqIndex).trim();
+    const sources = spec.slice(eqIndex + 1).split(',').map(s => s.trim()).filter(Boolean);
+    if (!name || sources.length === 0) {
+      throw new Error(`Invalid --attach value "${spec}". Expected "PropertyName=path[,path...]"`);
+    }
+    (result[name] ||= []).push(...sources);
+  }
+  return result;
+}
+
+/**
+ * Upload every `--attach` source and build the `files` property payloads.
+ * Validates against the database schema when one is available.
+ */
+async function buildFileProperties(
+  client: NotionClient,
+  specs: string[],
+  schema: DatabaseSchema | null,
+): Promise<Record<string, unknown>> {
+  const properties: Record<string, unknown> = {};
+
+  for (const [rawName, sources] of Object.entries(parseAttachSpecs(specs))) {
+    let name = rawName;
+
+    if (schema) {
+      const resolved = resolvePropertyName(schema, rawName);
+      if (!resolved) {
+        throw new Error(`Property "${rawName}" not found in database schema`);
+      }
+      if (schema[resolved].type !== 'files') {
+        throw new Error(
+          `Property "${resolved}" is a ${schema[resolved].type} property — --attach requires a files property`,
+        );
+      }
+      name = resolved;
+    }
+
+    const uploads = await resolveFileUploads(client, sources);
+    properties[name] = { files: uploads.map(file => buildFileAttachment(file.id, file.name)) };
+  }
+
+  return properties;
+}
 
 export function registerPagesCommand(program: Command): void {
   const pages = program
@@ -61,7 +136,9 @@ export function registerPagesCommand(program: Command): void {
     .option('--title-prop <name>', 'Name of title property (auto-detected if not set)')
     .option('-p, --prop <key=value...>', 'Set property (can be used multiple times)')
     .option('-c, --content <text>', 'Initial page content (paragraph)')
-    .option('--icon <emoji>', 'Set page icon (emoji character, e.g. 📝)')
+    .option('--icon <emoji|source>', 'Set page icon: emoji, local path, public URL, or file_upload ID')
+    .option('--cover <source>', 'Set page cover: local path, public URL, or file_upload ID')
+    .option('--attach <prop=sources...>', 'Attach file(s) to a files property, e.g. "Docs=a.pdf,b.png"')
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (options) => {
       const client = getClient();
@@ -76,7 +153,7 @@ export function registerPagesCommand(program: Command): void {
         // (for title auto-detection or property type resolution)
         let db: { properties: Record<string, { type: string }> } | null = null;
         const needsSchema = options.parentType === 'database' && (
-          (options.title && !options.titleProp) || options.prop
+          (options.title && !options.titleProp) || options.prop || options.attach
         );
         if (needsSchema) {
           try {
@@ -127,10 +204,18 @@ export function registerPagesCommand(program: Command): void {
           Object.assign(properties, parsed);
         }
 
+        if (options.attach) {
+          Object.assign(properties, await buildFileProperties(client, options.attach, db?.properties ?? null));
+        }
+
         const body: Record<string, unknown> = { parent, properties };
 
         if (options.icon) {
-          body.icon = { type: 'emoji', emoji: options.icon };
+          body.icon = await buildIconOrCover(client, options.icon);
+        }
+
+        if (options.cover) {
+          body.cover = await buildIconOrCover(client, options.cover);
         }
 
         // Add initial content via native markdown param
@@ -159,7 +244,9 @@ export function registerPagesCommand(program: Command): void {
     .option('--clear-prop <name...>', 'Clear a property (type-aware, e.g., --clear-prop "Assignee")')
     .option('--archive', 'Archive the page')
     .option('--unarchive', 'Unarchive the page')
-    .option('--icon <emoji>', 'Set page icon (emoji character, e.g. 📝)')
+    .option('--icon <emoji|source>', 'Set page icon: emoji, local path, public URL, or file_upload ID')
+    .option('--cover <source>', 'Set page cover: local path, public URL, or file_upload ID')
+    .option('--attach <prop=sources...>', 'Attach file(s) to a files property, e.g. "Docs=a.pdf,b.png"')
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (pageId: string, options) => {
       const client = getClient();
@@ -203,9 +290,9 @@ export function registerPagesCommand(program: Command): void {
           };
         }
 
-        // Fetch schema if we need it for --prop or --clear-prop
+        // Fetch schema if we need it for --prop, --clear-prop or --attach
         let db: { properties: Record<string, { type: string }> } | null = null;
-        if (options.prop || (options.clearProp && options.clearProp.length > 0)) {
+        if (options.prop || options.attach || (options.clearProp && options.clearProp.length > 0)) {
           try {
             const pg = await client.get(`pages/${pageId}`) as Page;
             const parentDbId = getParentDatabaseId(pg.parent);
@@ -233,6 +320,10 @@ export function registerPagesCommand(program: Command): void {
             : undefined;
           const parsed = parseProperties(options.prop, schemaTypes, peopleDirectory);
           Object.assign(properties, parsed);
+        }
+
+        if (options.attach) {
+          Object.assign(properties, await buildFileProperties(client, options.attach, db?.properties ?? null));
         }
 
         // Handle --clear-prop: fetch schema to determine property type
@@ -263,7 +354,11 @@ export function registerPagesCommand(program: Command): void {
         }
 
         if (options.icon) {
-          body.icon = { type: 'emoji', emoji: options.icon };
+          body.icon = await buildIconOrCover(client, options.icon);
+        }
+
+        if (options.cover) {
+          body.cover = await buildIconOrCover(client, options.cover);
         }
 
         const page = await client.patch(`pages/${pageId}`, body);

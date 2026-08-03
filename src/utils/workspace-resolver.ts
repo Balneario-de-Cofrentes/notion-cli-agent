@@ -64,6 +64,15 @@ const BARE_32_HEX_RE = /^[0-9a-f]{32}$/i;
 const SHORT_HEX_RE = /^[0-9a-f]{1,31}$/i;
 
 /**
+ * True only for a *complete* Notion id — a dashed UUID or a bare 32-hex string.
+ * Stricter than `isNotionUUID`, which also accepts short hex-ish aliases; use
+ * this when a value must unambiguously be an id and not, say, a filename.
+ */
+export function isFullNotionId(input: string): boolean {
+  return DASHED_UUID_RE.test(input) || BARE_32_HEX_RE.test(input);
+}
+
+/**
  * Normalize a page/block/database id arg to a dashed UUID the Notion API
  * accepts.
  *

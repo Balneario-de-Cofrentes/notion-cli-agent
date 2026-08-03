@@ -14,6 +14,15 @@ import { initClient, getClient } from './client.js';
 import { getDatabaseSchema, queryDatabase } from './utils/database-resolver.js';
 import { resolveDatabaseInput, isNotionUUID } from './utils/workspace-resolver.js';
 import { getPageTitle, getDbTitle, fetchAllBlocks, getPageMarkdown, buildTrashPayload } from './utils/notion-helpers.js';
+import {
+  resolveFileUpload,
+  resolveFileUploads,
+  buildCommentAttachment,
+  buildMediaBlock,
+  mediaBlockTypeFor,
+  parseMediaType,
+  MAX_COMMENT_ATTACHMENTS,
+} from './utils/file-upload.js';
 import type { Page, PaginatedResponse, Database } from './types/notion.js';
 
 const require = createRequire(import.meta.url);
@@ -342,6 +351,11 @@ export async function startMcpServer(): Promise<void> {
             page_id: { type: 'string', description: 'Page ID to comment on' },
             text: { type: 'string', description: 'Comment text (plain or markdown)' },
             markdown: { type: 'boolean', description: 'Treat text as markdown' },
+            attachments: {
+              type: 'array',
+              items: { type: 'string' },
+              description: `Up to ${MAX_COMMENT_ATTACHMENTS} files to attach: local paths, public URLs, or file_upload IDs`,
+            },
           },
           required: ['page_id', 'text'],
         },
@@ -354,8 +368,75 @@ export async function startMcpServer(): Promise<void> {
           } else {
             body.rich_text = [{ type: 'text', text: { content: params.text } }];
           }
+          const sources = (params.attachments as string[]) || [];
+          if (sources.length > MAX_COMMENT_ATTACHMENTS) {
+            throw new Error(`Notion allows at most ${MAX_COMMENT_ATTACHMENTS} attachments per comment`);
+          }
+          if (sources.length > 0) {
+            const files = await resolveFileUploads(client, sources);
+            body.attachments = files.map(file => buildCommentAttachment(file.id));
+          }
           const comment = await client.post('comments', body);
           return JSON.stringify(comment);
+        },
+      },
+
+      // --- Files --------------------------------------------------------
+
+      file_upload: {
+        description: 'Upload a file to Notion and return its file_upload ID (local path or public URL)',
+        parameters: {
+          type: 'object',
+          properties: {
+            source: { type: 'string', description: 'Local file path or publicly accessible URL' },
+            name: { type: 'string', description: 'Override the stored filename' },
+          },
+          required: ['source'],
+        },
+        handler: async (params) => {
+          const file = await resolveFileUpload(client, params.source as string, {
+            name: params.name as string | undefined,
+          });
+          return JSON.stringify(file);
+        },
+      },
+
+      file_attach: {
+        description: 'Upload file(s) and append them to a page as image/pdf/video/audio/file blocks',
+        parameters: {
+          type: 'object',
+          properties: {
+            page_id: { type: 'string', description: 'Page (or block) ID to append to' },
+            sources: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Local paths, public URLs, or existing file_upload IDs',
+            },
+            block_type: {
+              type: 'string',
+              enum: ['image', 'video', 'audio', 'pdf', 'file'],
+              description: 'Force a block type (default: detected from the filename)',
+            },
+            caption: { type: 'string', description: 'Caption applied to every attached block' },
+          },
+          required: ['page_id', 'sources'],
+        },
+        handler: async (params) => {
+          const pageId = assertNotionId(params.page_id, 'page_id');
+          const forcedType = parseMediaType(params.block_type as string | undefined);
+
+          const children: Array<Record<string, unknown>> = [];
+          for (const source of params.sources as string[]) {
+            const file = await resolveFileUpload(client, source);
+            children.push(buildMediaBlock(
+              forcedType || mediaBlockTypeFor(file.name),
+              file.id,
+              params.caption as string | undefined,
+            ));
+          }
+
+          const result = await client.patch(`blocks/${pageId}/children`, { children });
+          return JSON.stringify(result);
         },
       },
 

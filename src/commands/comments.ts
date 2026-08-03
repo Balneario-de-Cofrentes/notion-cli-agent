@@ -5,6 +5,11 @@ import { Command } from 'commander';
 import { getClient } from '../client.js';
 import { formatOutput } from '../utils/format.js';
 import { withErrorHandler } from '../utils/command-handler.js';
+import {
+  resolveFileUploads,
+  buildCommentAttachment,
+  MAX_COMMENT_ATTACHMENTS,
+} from '../utils/file-upload.js';
 import type { PaginatedResponse } from '../types/notion.js';
 
 interface Comment {
@@ -89,6 +94,7 @@ export function registerCommentsCommand(program: Command): void {
     .option('--discussion <discussion_id>', 'Discussion ID to reply to')
     .requiredOption('-t, --text <text>', 'Comment text')
     .option('-m, --markdown', 'Treat text as markdown (supports **bold**, [links](url), etc.)')
+    .option('--attach <source...>', `Attach file(s) — local path, public URL, or file_upload ID (max ${MAX_COMMENT_ATTACHMENTS})`)
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (options) => {
       if (!options.page && !options.discussion) {
@@ -96,9 +102,21 @@ export function registerCommentsCommand(program: Command): void {
         process.exit(1);
       }
 
+      const attachSources: string[] = options.attach || [];
+      if (attachSources.length > MAX_COMMENT_ATTACHMENTS) {
+        throw new Error(
+          `Notion allows at most ${MAX_COMMENT_ATTACHMENTS} attachments per comment (got ${attachSources.length})`,
+        );
+      }
+
       const client = getClient();
 
       const body: Record<string, unknown> = {};
+
+      if (attachSources.length > 0) {
+        const files = await resolveFileUploads(client, attachSources);
+        body.attachments = files.map(file => buildCommentAttachment(file.id));
+      }
 
       if (options.markdown) {
         body.markdown = options.text;

@@ -7,7 +7,11 @@ import { formatOutput, formatBlock } from '../utils/format.js';
 import { parseInlineMarkdown } from '../utils/markdown.js';
 import { withErrorHandler } from '../utils/command-handler.js';
 import { buildBlockPosition, buildTrashPayload } from '../utils/notion-helpers.js';
+import { resolveFileUpload, buildMediaBlock, type MediaBlockType } from '../utils/file-upload.js';
 import type { NotionRichTextItem, PaginatedResponse } from '../types/notion.js';
+
+/** Media flags on `block append`, each named after the block type it creates. */
+const MEDIA_OPTIONS: MediaBlockType[] = ['image', 'file', 'pdf', 'video', 'audio'];
 
 export function registerBlocksCommand(program: Command): void {
   const blocks = program
@@ -74,6 +78,12 @@ export function registerBlocksCommand(program: Command): void {
     .option('--quote <text>', 'Add quote block')
     .option('--divider', 'Add divider')
     .option('--callout <text>', 'Add callout block')
+    .option('--image <source...>', 'Add image (local path, public URL, or file_upload ID)')
+    .option('--file <source...>', 'Add file attachment (local path, public URL, or file_upload ID)')
+    .option('--pdf <source...>', 'Add PDF (local path, public URL, or file_upload ID)')
+    .option('--video <source...>', 'Add video (local path, public URL, or file_upload ID)')
+    .option('--audio <source...>', 'Add audio (local path, public URL, or file_upload ID)')
+    .option('--caption <text>', 'Caption for the media blocks added in this call')
     .option('--after <block_id>', 'Insert after this block')
     .option('-j, --json', 'Output raw JSON')
     .action(withErrorHandler(async (blockId: string, options) => {
@@ -121,8 +131,16 @@ export function registerBlocksCommand(program: Command): void {
         children.push(createCallout(options.callout));
       }
 
+      // Media blocks: each source is uploaded (or resolved) before appending
+      for (const type of MEDIA_OPTIONS) {
+        for (const source of (options[type] as string[] | undefined) || []) {
+          const file = await resolveFileUpload(client, source);
+          children.push(buildMediaBlock(type, file.id, options.caption));
+        }
+      }
+
       if (children.length === 0) {
-        console.error('Error: No content specified. Use --text, --heading1, --bullet, etc.');
+        console.error('Error: No content specified. Use --text, --heading1, --bullet, --image, etc.');
         process.exit(1);
       }
 

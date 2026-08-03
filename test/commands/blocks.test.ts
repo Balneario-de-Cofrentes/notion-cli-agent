@@ -5,9 +5,11 @@ import { mockBlock, mockBlockChildren, createPaginatedResult } from '../fixtures
 describe('Blocks Command', () => {
   let program: Command;
   let mockClient: any;
+  let mockFS: Map<string, Buffer>;
 
   beforeEach(async () => {
     vi.resetModules();
+    mockFS = new Map();
 
     // Create mock client
     mockClient = {
@@ -15,12 +17,26 @@ describe('Blocks Command', () => {
       post: vi.fn(),
       patch: vi.fn(),
       delete: vi.fn(),
+      postForm: vi.fn(),
     };
 
     // Mock the client module
     vi.doMock('../../src/client', () => ({
       getClient: () => mockClient,
       initClient: vi.fn(),
+    }));
+
+    // Mock fs module (needed for the media flags on block append)
+    vi.doMock('fs', () => ({
+      existsSync: vi.fn((path: string) => mockFS.has(path)),
+      promises: {
+        stat: vi.fn(async (path: string) => {
+          if (!mockFS.has(path)) throw new Error('ENOENT');
+          return { size: mockFS.get(path)!.length };
+        }),
+        readFile: vi.fn(async (path: string) => mockFS.get(path)!),
+        open: vi.fn(),
+      },
     }));
 
     // Import command and register it
@@ -126,6 +142,82 @@ describe('Blocks Command', () => {
       });
 
       expect(console.log).toHaveBeenCalledWith('✅ Added 1 block(s)');
+    });
+
+    it('should upload and append an image block', async () => {
+      mockFS.set('shot.png', Buffer.alloc(16));
+      mockClient.post.mockResolvedValue({ id: 'up-1' });
+      mockClient.postForm.mockResolvedValue({ id: 'up-1', status: 'uploaded', filename: 'shot.png' });
+      mockClient.patch.mockResolvedValue({ results: [mockBlock] });
+
+      await program.parseAsync([
+        'node', 'test', 'block', 'append', 'page-123',
+        '--image', 'shot.png', '--caption', 'A screenshot',
+      ]);
+
+      expect(mockClient.post).toHaveBeenCalledWith('file_uploads', {
+        mode: 'single_part',
+        filename: 'shot.png',
+        content_type: 'image/png',
+      });
+      expect(mockClient.patch).toHaveBeenCalledWith('blocks/page-123/children', {
+        children: [{
+          object: 'block',
+          type: 'image',
+          image: {
+            type: 'file_upload',
+            file_upload: { id: 'up-1' },
+            caption: [{ type: 'text', text: { content: 'A screenshot' } }],
+          },
+        }],
+      });
+    });
+
+    it('should append text and file blocks together', async () => {
+      mockFS.set('report.pdf', Buffer.alloc(16));
+      mockClient.post.mockResolvedValue({ id: 'up-2' });
+      mockClient.postForm.mockResolvedValue({ id: 'up-2', status: 'uploaded', filename: 'report.pdf' });
+      mockClient.patch.mockResolvedValue({ results: [mockBlock, mockBlock] });
+
+      await program.parseAsync([
+        'node', 'test', 'block', 'append', 'page-123',
+        '--text', 'See attached', '--pdf', 'report.pdf',
+      ]);
+
+      expect(mockClient.patch).toHaveBeenCalledWith('blocks/page-123/children', {
+        children: [
+          expect.objectContaining({ type: 'paragraph' }),
+          {
+            object: 'block',
+            type: 'pdf',
+            pdf: { type: 'file_upload', file_upload: { id: 'up-2' } },
+          },
+        ],
+      });
+      expect(console.log).toHaveBeenCalledWith('✅ Added 2 block(s)');
+    });
+
+    it('should attach a file from a public URL', async () => {
+      mockClient.post.mockResolvedValue({ id: 'up-3', status: 'uploaded', filename: 'clip.mp4' });
+      mockClient.patch.mockResolvedValue({ results: [mockBlock] });
+
+      await program.parseAsync([
+        'node', 'test', 'block', 'append', 'page-123',
+        '--video', 'https://example.com/clip.mp4',
+      ]);
+
+      expect(mockClient.post).toHaveBeenCalledWith('file_uploads', {
+        mode: 'external_url',
+        external_url: 'https://example.com/clip.mp4',
+        filename: 'clip.mp4',
+      });
+      expect(mockClient.patch).toHaveBeenCalledWith('blocks/page-123/children', {
+        children: [{
+          object: 'block',
+          type: 'video',
+          video: { type: 'file_upload', file_upload: { id: 'up-3' } },
+        }],
+      });
     });
 
     it('should append heading blocks', async () => {

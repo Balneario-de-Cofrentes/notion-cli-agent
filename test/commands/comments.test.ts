@@ -5,9 +5,11 @@ import { mockComment, mockCommentList, createPaginatedResult } from '../fixtures
 describe('Comments Command', () => {
   let program: Command;
   let mockClient: any;
+  let mockFS: Map<string, Buffer>;
 
   beforeEach(async () => {
     vi.resetModules();
+    mockFS = new Map();
 
     // Create mock client
     mockClient = {
@@ -15,12 +17,26 @@ describe('Comments Command', () => {
       post: vi.fn(),
       patch: vi.fn(),
       delete: vi.fn(),
+      postForm: vi.fn(),
     };
 
     // Mock the client module
     vi.doMock('../../src/client', () => ({
       getClient: () => mockClient,
       initClient: vi.fn(),
+    }));
+
+    // Mock fs module (needed for --attach)
+    vi.doMock('fs', () => ({
+      existsSync: vi.fn((path: string) => mockFS.has(path)),
+      promises: {
+        stat: vi.fn(async (path: string) => {
+          if (!mockFS.has(path)) throw new Error('ENOENT');
+          return { size: mockFS.get(path)!.length };
+        }),
+        readFile: vi.fn(async (path: string) => mockFS.get(path)!),
+        open: vi.fn(),
+      },
     }));
 
     // Import command and register it
@@ -159,6 +175,39 @@ describe('Comments Command', () => {
       expect(console.log).toHaveBeenCalledWith('✅ Comment created');
       expect(console.log).toHaveBeenCalledWith('ID:', 'new-comment-123');
       expect(console.log).toHaveBeenCalledWith('Discussion:', 'disc-123');
+    });
+
+    it('should upload and attach files to a comment', async () => {
+      mockFS.set('shot.png', Buffer.alloc(8));
+      mockClient.post
+        .mockResolvedValueOnce({ id: 'up-1' })
+        .mockResolvedValueOnce(mockComment);
+      mockClient.postForm.mockResolvedValue({ id: 'up-1', status: 'uploaded', filename: 'shot.png' });
+
+      await program.parseAsync([
+        'node', 'test', 'comment', 'create',
+        '--page', 'page-123', '--text', 'See this', '--attach', 'shot.png',
+      ]);
+
+      expect(mockClient.post).toHaveBeenLastCalledWith('comments', {
+        attachments: [{ type: 'file_upload', file_upload_id: 'up-1' }],
+        parent: { page_id: 'page-123' },
+        rich_text: [{ type: 'text', text: { content: 'See this' } }],
+      });
+    });
+
+    it('should reject more than 3 attachments', async () => {
+      await expect(program.parseAsync([
+        'node', 'test', 'comment', 'create',
+        '--page', 'page-123', '--text', 'Too many',
+        '--attach', 'a.png', 'b.png', 'c.png', 'd.png',
+      ])).rejects.toThrow('process.exit(1)');
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error:',
+        'Notion allows at most 3 attachments per comment (got 4)',
+      );
+      expect(mockClient.post).not.toHaveBeenCalled();
     });
 
     it('should create comment in discussion', async () => {

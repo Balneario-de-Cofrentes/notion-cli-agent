@@ -89,6 +89,25 @@ describe('NotionClient', () => {
       );
     });
 
+    it('should send multipart form data without a JSON Content-Type', async () => {
+      const { NotionClient } = await import('../src/client');
+      const client = new NotionClient({ token: 'test_token' });
+
+      const form = new FormData();
+      form.append('file', new Blob(['bytes']), 'a.png');
+      global.fetch = createMockFetch({ data: { id: 'up-1', status: 'uploaded' } });
+
+      await client.postForm('file_uploads/up-1/send', form);
+
+      const [url, init] = (global.fetch as any).mock.calls[0];
+      expect(url).toBe('https://api.notion.com/v1/file_uploads/up-1/send');
+      expect(init.method).toBe('POST');
+      expect(init.body).toBe(form);
+      expect(init.headers['Content-Type']).toBeUndefined();
+      expect(init.headers['Authorization']).toBe('Bearer test_token');
+      expect(init.headers['Notion-Version']).toBe('2026-03-11');
+    });
+
     it('should make PATCH request with body', async () => {
       const { NotionClient } = await import('../src/client');
       const client = new NotionClient({ token: 'test_token' });

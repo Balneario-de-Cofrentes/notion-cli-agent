@@ -148,6 +148,20 @@ notion block append <page_id> --heading2 "Section" --bullet "Item 1" --bullet "I
 notion block append <page_id> --todo "Action item"
 ```
 
+### Files & attachments
+`<source>` = local path, public URL, or an existing file_upload ID.
+```bash
+notion file attach <page_id> shot.png                      # upload + append (type auto-detected)
+notion file attach <page_id> a.pdf b.png --caption "Q3"
+notion file upload shot.png                                # upload only → prints the ID
+notion block append <page_id> --text "See below" --image shot.png
+notion page update <page_id> --icon logo.png --cover https://example.com/hero.jpg
+notion page update <page_id> --attach "Attachments=spec.pdf,diagram.png"
+notion comment create --page <page_id> -t "Screenshot" --attach shot.png   # max 3
+```
+URL imports need a filename with an extension. If the URL ends in a bare ID:
+`notion file import <url> --content-type image/jpeg` → reuse the printed ID as the source.
+
 ### Batch (minimize tool calls)
 ```bash
 notion batch --dry-run --data '[

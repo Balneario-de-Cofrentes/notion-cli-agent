@@ -24,6 +24,11 @@ export interface NotionClientOptions {
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: Record<string, unknown>;
+  /**
+   * Multipart payload (file uploads). When set, `body` is ignored and the
+   * Content-Type header is omitted so fetch can set its own boundary.
+   */
+  formData?: FormData;
   query?: Record<string, string | number | boolean | undefined>;
   version?: string;
 }
@@ -67,7 +72,7 @@ export class NotionClient {
   }
 
   async request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', body, query, version } = options;
+    const { method = 'GET', body, formData, query, version } = options;
 
     let url = `${NOTION_API_BASE}/${path}`;
 
@@ -87,8 +92,12 @@ export class NotionClient {
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${this.token}`,
       'Notion-Version': version || this.version,
-      'Content-Type': 'application/json',
     };
+
+    // fetch derives the multipart Content-Type (with boundary) from the FormData
+    if (!formData) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     let lastError: Error | null = null;
 
@@ -99,7 +108,7 @@ export class NotionClient {
         const response = await fetch(url, {
           method,
           headers,
-          body: body ? JSON.stringify(body) : undefined,
+          body: formData ?? (body ? JSON.stringify(body) : undefined),
         });
 
         // Rate limited: respect Retry-After header
@@ -158,6 +167,11 @@ export class NotionClient {
 
   post<T = unknown>(path: string, body?: RequestOptions['body'], query?: RequestOptions['query']): Promise<T> {
     return this.request<T>(path, { method: 'POST', body, query });
+  }
+
+  /** POST a multipart/form-data payload (file upload parts). */
+  postForm<T = unknown>(path: string, formData: FormData): Promise<T> {
+    return this.request<T>(path, { method: 'POST', formData });
   }
 
   patch<T = unknown>(path: string, body?: RequestOptions['body']): Promise<T> {
