@@ -86,6 +86,7 @@ describe('Bulk Command', () => {
         '--dry-run',
       ]);
 
+      expect(mockClient.get).toHaveBeenCalledWith('databases/db-123');
       expect(mockClient.patch).not.toHaveBeenCalled();
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Dry run'));
     });
@@ -322,6 +323,9 @@ describe('Bulk Command', () => {
         '--yes',
       ]);
 
+      // The database id must reach archive: passing the command name as the
+      // first arg made archive resolve the literal string "archive" instead.
+      expect(mockClient.get).toHaveBeenCalledWith('databases/db-123');
       // Delete is an alias for archive, so uses patch
       expect(mockClient.patch).toHaveBeenCalledTimes(2);
       expect(mockClient.patch).toHaveBeenCalledWith('pages/1', { in_trash: true });

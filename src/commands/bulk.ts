@@ -276,8 +276,9 @@ export function registerBulkCommand(program: Command): void {
       // Re-run as archive
       const archiveCmd = bulk.commands.find(c => c.name() === 'archive');
       if (archiveCmd) {
+        // `from: 'user'` means these are archive's own args — no command name.
         await archiveCmd.parseAsync([
-          'archive', databaseId,
+          databaseId,
           '--where', options.where,
           ...(options.dryRun ? ['--dry-run'] : []),
           ...(options.limit ? ['--limit', options.limit] : []),
