@@ -4,6 +4,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
+    // TypeScript 7 does not pick up @types automatically here.
+    "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,

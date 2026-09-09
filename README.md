@@ -113,7 +113,7 @@ pnpm link --global
 ```
 
 ### Requirements
-- Node.js 20+
+- Node.js 22.12+
 - A Notion integration token ([create one here](https://www.notion.so/my-integrations))
 
 ---

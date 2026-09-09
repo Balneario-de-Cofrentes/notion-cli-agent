@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Node.js 22.12 or newer is now required** (`engines.node: >=22.12.0`, previously `>=20`). Node 20 reached end-of-life on 2026-04-30, and both runtime dependencies moved past it: chalk 6 requires Node 22, commander 15 requires 22.12.
+- **Dependencies updated to current majors** — chalk 6, commander 15, and, for the toolchain, TypeScript 7, @types/node 26, vitest 5, vite 8, eslint 10. TypeScript 7 no longer picks up `@types` implicitly here, so `tsconfig.json` names `"types": ["node"]`; the emitted `.js` and `.d.ts` are byte-identical to the TypeScript 5.9 output.
+- **Security overrides** — `@humanfs/node >=0.16.8` (GHSA-p498-v437-472g) and `nanoid >=3.3.18 <4` (GHSA-2v37-7h3g-55p8) pin two transitive dev dependencies; the stale `vite` override is gone now that vite is a direct devDependency. `pnpm audit` is clean.
+
 ### Fixed
 
 - **`notion sync` stored data_source ids, so every name-based lookup 404'd** (#60). The workspace search filters on `object: data_source`, so each hit's `id` is a data_source id — but the registry it writes is what `resolveDatabaseInput` hands to the database resolver (`GET /v1/databases/{id}`) and what page creation sends as `parent.database_id`. Sync now stores the owning `parent.database_id`, and a database with several data sources is recorded once, keeping the titled source rather than an untitled linked view.
