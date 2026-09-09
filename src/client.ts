@@ -33,6 +33,18 @@ export interface RequestOptions {
   version?: string;
 }
 
+/**
+ * An error returned by the Notion API, carrying the HTTP status so callers can
+ * branch on it (e.g. a 404 that means "wrong id kind") instead of parsing the
+ * message. The message format is unchanged.
+ */
+export class NotionApiError extends Error {
+  constructor(readonly status: number, apiMessage: string) {
+    super(`Notion API Error (${status}): ${apiMessage}`);
+    this.name = 'NotionApiError';
+  }
+}
+
 class RateLimiter {
   private timestamps: number[] = [];
   private maxRequests: number;
@@ -135,15 +147,15 @@ export class NotionClient {
         if (!response.ok) {
           const error = await response.json().catch(() => ({}));
           const message = (error as { message?: string }).message || response.statusText;
-          throw new Error(`Notion API Error (${response.status}): ${message}`);
+          throw new NotionApiError(response.status, message);
         }
 
         return response.json() as Promise<T>;
       } catch (error) {
         lastError = error as Error;
 
-        // Don't retry client-side errors (4xx) except 429
-        if (lastError.message.includes('Notion API Error (4')) {
+        // Don't retry client-side errors (4xx); 429 already retried above
+        if (lastError instanceof NotionApiError && lastError.status < 500) {
           throw lastError;
         }
 

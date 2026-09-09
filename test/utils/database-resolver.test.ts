@@ -220,6 +220,84 @@ describe('DatabaseResolver (API v2025-09-03)', () => {
     });
   });
 
+  // ─── data_source ids passed in place of database ids ──────────────────────
+
+  /**
+   * Registries written by `notion sync` before v0.22.0 hold data_source ids,
+   * and `notion inspect workspace` still prints them, so an id reaching the
+   * resolver may be either kind. `GET databases/{data_source_id}` 404s with a
+   * misleading "share it with your integration" message (issue #60), so fall
+   * back to `GET data_sources/{id}` before giving up.
+   */
+  describe('resolveDatabase() with a data_source id', () => {
+    const notFound = () =>
+      new Error('Notion API Error (404): Could not find database with ID: ds-456.');
+
+    it('falls back to /data_sources/ when /databases/ 404s', async () => {
+      mockClient.get
+        .mockRejectedValueOnce(notFound())
+        .mockResolvedValueOnce({
+          ...mockDataSource,
+          id: 'ds-456',
+          parent: { type: 'database_id', database_id: 'db-123' },
+        });
+
+      const result = await resolver.resolveDatabase(mockClient, 'ds-456');
+
+      expect(mockClient.get).toHaveBeenNthCalledWith(1, 'databases/ds-456');
+      expect(mockClient.get).toHaveBeenNthCalledWith(2, 'data_sources/ds-456');
+      expect(result.dataSourceId).toBe('ds-456');
+      expect(result.databaseId).toBe('db-123');
+      expect(result.queryPath).toBe('data_sources/ds-456/query');
+    });
+
+    it('recognises a 404 carried on the error status, not just the message', async () => {
+      const err = Object.assign(new Error('Could not find database'), { status: 404 });
+      mockClient.get
+        .mockRejectedValueOnce(err)
+        .mockResolvedValueOnce({ ...mockDataSource, id: 'ds-456' });
+
+      const result = await resolver.resolveDatabase(mockClient, 'ds-456');
+
+      expect(result.dataSourceId).toBe('ds-456');
+    });
+
+    it('uses the given id as databaseId when the data_source has no database parent', async () => {
+      mockClient.get
+        .mockRejectedValueOnce(notFound())
+        .mockResolvedValueOnce({ ...mockDataSource, id: 'ds-456' });
+
+      const result = await resolver.resolveDatabase(mockClient, 'ds-456');
+
+      expect(result.databaseId).toBe('ds-456');
+    });
+
+    it('rethrows the original error when the id is neither a database nor a data_source', async () => {
+      mockClient.get.mockRejectedValue(notFound());
+
+      await expect(resolver.resolveDatabase(mockClient, 'ds-456'))
+        .rejects.toThrow('Could not find database with ID: ds-456');
+    });
+
+    it('does not fall back on non-404 failures', async () => {
+      mockClient.get.mockRejectedValueOnce(
+        new Error('Notion API Error (401): API token is invalid.'),
+      );
+
+      await expect(resolver.resolveDatabase(mockClient, 'ds-456'))
+        .rejects.toThrow('401');
+      expect(mockClient.get).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fall back when the database exists but has no data sources', async () => {
+      mockClient.get.mockResolvedValueOnce({ ...mockMultiDsDatabase, data_sources: [] });
+
+      await expect(resolver.resolveDatabase(mockClient, 'db-123'))
+        .rejects.toThrow('has no data sources');
+      expect(mockClient.get).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ─── getDatabaseSchema ─────────────────────────────────────────────────────
 
   describe('getDatabaseSchema()', () => {

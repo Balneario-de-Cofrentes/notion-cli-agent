@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`notion sync` stored data_source ids, so every name-based lookup 404'd** (#60). The workspace search filters on `object: data_source`, so each hit's `id` is a data_source id — but the registry it writes is what `resolveDatabaseInput` hands to the database resolver (`GET /v1/databases/{id}`) and what page creation sends as `parent.database_id`. Sync now stores the owning `parent.database_id`, and a database with several data sources is recorded once, keeping the titled source rather than an untitled linked view.
+- **A data_source id passed where a database id is expected now resolves** instead of failing with Notion's misleading "Make sure the relevant pages and databases are shared with your integration". When `GET /v1/databases/{id}` 404s, the resolver retries `GET /v1/data_sources/{id}` and takes the database id from its `parent`. Registries written by an older `notion sync` therefore keep working without a re-sync, as do ids copied from `notion inspect workspace`.
+
 ## [0.21.0] - 2026-07-26
 
 ### Added

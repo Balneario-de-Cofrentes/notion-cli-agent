@@ -120,6 +120,14 @@ async function fetchDataSource(
   const ds = await client.get<Record<string, unknown>>(
     `data_sources/${dataSourceId}`,
   );
+  return buildResolved(databaseId, dataSourceId, ds);
+}
+
+function buildResolved(
+  databaseId: string,
+  dataSourceId: string,
+  ds: Record<string, unknown>,
+): ResolvedDatabase {
   return {
     type: 'data_source',
     databaseId,
@@ -127,6 +135,28 @@ async function fetchDataSource(
     ...buildPaths(dataSourceId),
     schema: normalizeToDatabase(ds, dataSourceId),
   };
+}
+
+/** True for a Notion 404, whether the status rides on the error or the message. */
+function isNotFound(error: unknown): boolean {
+  if ((error as { status?: number } | null)?.status === 404) return true;
+  return error instanceof Error && error.message.includes('Notion API Error (404)');
+}
+
+/**
+ * Resolve an id that is already a data_source id. `GET /data_sources/{id}`
+ * carries the owning database in `parent.database_id`, so no extra round trip
+ * is needed to fill in the ResolvedDatabase.
+ */
+async function resolveAsDataSource(
+  client: NotionClient,
+  dataSourceId: string,
+): Promise<ResolvedDatabase> {
+  const ds = await client.get<Record<string, unknown>>(
+    `data_sources/${dataSourceId}`,
+  );
+  const parent = ds.parent as { database_id?: string } | undefined;
+  return buildResolved(parent?.database_id ?? dataSourceId, dataSourceId, ds);
 }
 
 /**
@@ -162,7 +192,25 @@ async function discoverAndResolve(
   client: NotionClient,
   databaseId: string,
 ): Promise<ResolvedDatabase> {
-  const dataSourceId = await discoverDataSourceId(client, databaseId);
+  let dataSourceId: string;
+
+  try {
+    dataSourceId = await discoverDataSourceId(client, databaseId);
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+
+    // The id may itself be a data_source id: `notion inspect workspace` prints
+    // those, workspace registries written before v0.22.0 stored them, and
+    // Notion's own search returns them. `GET /databases/{data_source_id}` 404s
+    // with a misleading "share it with your integration" message, so try the
+    // other endpoint before believing it.
+    try {
+      return await resolveAsDataSource(client, databaseId);
+    } catch {
+      throw error;
+    }
+  }
+
   return fetchDataSource(client, databaseId, dataSourceId);
 }
 
